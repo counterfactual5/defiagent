@@ -10,12 +10,14 @@ import {
   AlertCircle,
   PanelLeftClose,
   PanelLeftOpen,
+  Trash2,
   X,
 } from 'lucide-react';
 import { Markdown } from '@/components/Markdown';
 import { RepoPanel } from '@/components/RepoPanel';
 import { ToolActivityRail, type PhaseEvent, type ToolEvent } from '@/components/ToolActivityRail';
 import { LIVE_TOOLS } from '@/lib/live-tools';
+import { clearSession, loadSession, saveSession, type SessionSnapshot, type TurnReceipt } from '@/lib/session';
 
 const MODELS = [
   { id: 'deepseek-v4-flash-200k', label: 'DeepSeek V4 Flash 200K' },
@@ -30,26 +32,64 @@ const MODELS = [
 
 type ArmedPrompt = { prompt: string; label: string };
 
+function parseLiveData(data: unknown[] | undefined) {
+  let latestPhase: PhaseEvent | null = null;
+  const toolMap = new Map<string, ToolEvent>();
+  for (const item of data || []) {
+    if (!item || typeof item !== 'object') continue;
+    const row = item as any;
+    if (row.type === 'phase') {
+      latestPhase = row as PhaseEvent;
+    } else if (row.type === 'tool' && row.name) {
+      const key = String(row.id || row.name);
+      toolMap.set(key, { ...(toolMap.get(key) || {}), ...row } as ToolEvent);
+    }
+  }
+  return { phase: latestPhase, tools: Array.from(toolMap.values()) };
+}
+
 export default function AgentPage() {
-  const [selectedModel, setSelectedModel] = useState('deepseek-v4-flash-200k');
+  const [boot, setBoot] = useState<SessionSnapshot | null | undefined>(undefined);
+
+  useEffect(() => {
+    setBoot(loadSession());
+  }, []);
+
+  if (boot === undefined) {
+    return (
+      <div className="flex h-[100dvh] items-center justify-center bg-[#eef2f7] text-sm text-slate-500">
+        Restoring session…
+      </div>
+    );
+  }
+
+  return <AgentConsole boot={boot} />;
+}
+
+function AgentConsole({ boot }: { boot: SessionSnapshot | null }) {
+  const [selectedModel, setSelectedModel] = useState(boot?.selectedModel || 'deepseek-v4-flash-200k');
   const [error, setError] = useState<string | null>(null);
   const [armed, setArmed] = useState<ArmedPrompt | null>(null);
   const [railOpen, setRailOpen] = useState(true);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [receiptsByTurn, setReceiptsByTurn] = useState<Record<string, TurnReceipt>>(boot?.receiptsByTurn || {});
+  const [composerPad, setComposerPad] = useState(0);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const activeTurnRef = useRef<string | null>(null);
 
   const {
     messages,
+    setMessages,
     input,
     setInput,
     handleInputChange,
-    handleSubmit,
     isLoading,
     append,
     data,
     setData,
   } = useChat({
     api: '/api/chat',
+    initialMessages: boot?.messages || [],
     body: { model: selectedModel },
     onError: (err) => setError(err.message || 'Chat request failed'),
     onResponse: (res) => {
@@ -61,25 +101,59 @@ export default function AgentPage() {
     },
   });
 
-  const { phase, tools } = useMemo(() => {
-    let latestPhase: PhaseEvent | null = null;
-    const toolMap = new Map<string, ToolEvent>();
-    for (const item of data || []) {
-      if (!item || typeof item !== 'object') continue;
-      const row = item as any;
-      if (row.type === 'phase') {
-        latestPhase = row as PhaseEvent;
-      } else if (row.type === 'tool' && row.name) {
-        const key = String(row.id || row.name);
-        toolMap.set(key, { ...(toolMap.get(key) || {}), ...row } as ToolEvent);
-      }
-    }
-    return { phase: latestPhase, tools: Array.from(toolMap.values()) };
-  }, [data]);
+  const live = useMemo(() => parseLiveData(data as unknown[] | undefined), [data]);
+
+  useEffect(() => {
+    const lastUser = [...messages].reverse().find((m) => m.role === 'user');
+    if (lastUser && isLoading) activeTurnRef.current = lastUser.id;
+    const turnId = activeTurnRef.current || lastUser?.id;
+    if (!turnId) return;
+    if (!live.phase && live.tools.length === 0) return;
+    setReceiptsByTurn((prev) => ({
+      ...prev,
+      [turnId]: {
+        phase: live.phase,
+        tools: live.tools,
+      },
+    }));
+  }, [messages, isLoading, live.phase, live.tools]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, isLoading, tools, phase]);
+  }, [messages, isLoading, live.tools, live.phase]);
+
+  useEffect(() => {
+    saveSession({
+      selectedModel,
+      messages,
+      receiptsByTurn,
+    });
+  }, [selectedModel, messages, receiptsByTurn]);
+
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [mobileOpen]);
+
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const sync = () => {
+      const occluded = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+      setComposerPad(occluded > 40 ? occluded : 0);
+    };
+    sync();
+    vv.addEventListener('resize', sync);
+    vv.addEventListener('scroll', sync);
+    return () => {
+      vv.removeEventListener('resize', sync);
+      vv.removeEventListener('scroll', sync);
+    };
+  }, []);
 
   const startRun = async (prompt: string) => {
     const text = prompt.trim();
@@ -88,6 +162,7 @@ export default function AgentPage() {
     setMobileOpen(false);
     setError(null);
     setData(undefined);
+    activeTurnRef.current = null;
     await append({ role: 'user', content: text });
   };
 
@@ -108,14 +183,32 @@ export default function AgentPage() {
     void startRun(prompt);
   };
 
+  const clearChat = () => {
+    if (isLoading) return;
+    setMessages([]);
+    setReceiptsByTurn({});
+    setData(undefined);
+    setArmed(null);
+    setError(null);
+    activeTurnRef.current = null;
+    clearSession();
+  };
+
+  const receiptFor = (userMessageId: string, isActive: boolean): TurnReceipt => {
+    if (isActive && (live.tools.length > 0 || live.phase)) {
+      return { phase: live.phase, tools: live.tools };
+    }
+    return receiptsByTurn[userMessageId] || { tools: [] };
+  };
+
   return (
-    <div className="flex h-screen flex-col text-slate-900 selection:bg-blue-100/70">
+    <div className="flex h-[100dvh] flex-col text-slate-900 selection:bg-blue-100/70">
       <header className="sticky top-0 z-50 border-b border-slate-200/70 bg-white/75 backdrop-blur-xl">
         <div className="flex items-center justify-between gap-3 px-4 py-3 lg:px-5">
           <div className="flex items-center gap-3">
             <button
               type="button"
-              className="hidden rounded-lg border border-slate-200 bg-white/80 p-2 text-slate-600 transition hover:border-blue-300 lg:inline-flex"
+              className="hidden min-h-11 min-w-11 items-center justify-center rounded-lg border border-slate-200 bg-white/80 p-2 text-slate-600 transition hover:border-blue-300 lg:inline-flex"
               onClick={() => setRailOpen((v) => !v)}
               aria-label={railOpen ? 'Collapse context rail' : 'Expand context rail'}
             >
@@ -123,7 +216,7 @@ export default function AgentPage() {
             </button>
             <button
               type="button"
-              className="inline-flex rounded-lg border border-slate-200 bg-white/80 p-2 text-slate-600 transition hover:border-blue-300 lg:hidden"
+              className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-slate-200 bg-white/80 p-2 text-slate-600 transition hover:border-blue-300 lg:hidden"
               onClick={() => setMobileOpen(true)}
               aria-label="Open tools"
             >
@@ -140,25 +233,35 @@ export default function AgentPage() {
                 </span>
               </h1>
               <p className="hidden text-[11px] font-medium text-slate-500 sm:block">
-                Operator console · order books, LP risk, RPC preflight, market validation
+                Operator console · receipts stay with each finding
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2">
             <select
               value={selectedModel}
               onChange={(e) => setSelectedModel(e.target.value)}
-              className="max-w-[140px] cursor-pointer rounded-lg border border-slate-200 bg-white/80 px-2.5 py-1.5 text-xs text-slate-700 outline-none transition-shadow focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 sm:max-w-none"
+              className="max-w-[132px] cursor-pointer rounded-lg border border-slate-200 bg-white/80 px-2.5 py-2 text-xs text-slate-700 outline-none transition-shadow focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 sm:max-w-none"
             >
               {MODELS.map((m) => (
                 <option key={m.id} value={m.id}>{m.label}</option>
               ))}
             </select>
+            <button
+              type="button"
+              onClick={clearChat}
+              disabled={isLoading || messages.length === 0}
+              className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-slate-200 bg-white/80 px-2.5 py-2 text-xs font-semibold text-slate-600 transition hover:border-red-200 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-40"
+              title="Clear local session"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Clear</span>
+            </button>
             <a
               href="https://defiagent.llm.christmas"
               target="_blank"
               rel="noreferrer"
-              className="brand-gradient hidden items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-white shadow-sm shadow-blue-500/25 transition hover:brightness-105 sm:flex"
+              className="brand-gradient hidden min-h-11 items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold text-white shadow-sm shadow-blue-500/25 transition hover:brightness-105 sm:inline-flex"
             >
               Gateway <ExternalLink className="h-3.5 w-3.5" />
             </a>
@@ -167,7 +270,6 @@ export default function AgentPage() {
       </header>
 
       <div className="flex min-h-0 flex-1">
-        {/* Desktop rail */}
         <aside
           className={`hidden shrink-0 border-r border-slate-200/70 bg-white/35 backdrop-blur-md transition-[width] duration-200 lg:flex ${
             railOpen ? 'w-[320px]' : 'w-[64px]'
@@ -178,19 +280,30 @@ export default function AgentPage() {
           </div>
         </aside>
 
-        {/* Mobile sheet */}
         {mobileOpen && (
           <div className="fixed inset-0 z-[60] lg:hidden">
-            <button type="button" className="absolute inset-0 bg-slate-900/35" aria-label="Close" onClick={() => setMobileOpen(false)} />
-            <div className="absolute inset-x-0 bottom-0 max-h-[78vh] overflow-hidden rounded-t-2xl bg-[#eef2f7] p-3 shadow-2xl">
-              <div className="mb-2 flex items-center justify-between px-1">
+            <button type="button" className="absolute inset-0 bg-slate-900/40" aria-label="Close" onClick={() => setMobileOpen(false)} />
+            <div
+              className="absolute inset-x-0 bottom-0 flex max-h-[82dvh] flex-col overflow-hidden rounded-t-2xl bg-[#eef2f7] shadow-2xl"
+              style={{ paddingBottom: 'max(12px, env(safe-area-inset-bottom))' }}
+            >
+              <div className="flex items-center justify-center pt-2">
+                <div className="h-1.5 w-10 rounded-full bg-slate-300" />
+              </div>
+              <div className="flex items-center justify-between px-4 py-2">
                 <span className="text-sm font-semibold text-slate-800">Tools & Projects</span>
-                <button type="button" onClick={() => setMobileOpen(false)} className="rounded-lg p-1.5 text-slate-500 hover:bg-white">
+                <button
+                  type="button"
+                  onClick={() => setMobileOpen(false)}
+                  className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg text-slate-500 hover:bg-white"
+                >
                   <X className="h-4 w-4" />
                 </button>
               </div>
-              <div className="h-[68vh]">
-                <RepoPanel onInvoke={handleInvoke} />
+              <div className="min-h-0 flex-1 overflow-hidden px-3 pb-3">
+                <div className="h-[min(68dvh,560px)]">
+                  <RepoPanel onInvoke={handleInvoke} />
+                </div>
               </div>
             </div>
           </div>
@@ -201,7 +314,7 @@ export default function AgentPage() {
             <div className="text-sm font-semibold text-slate-700">Briefing</div>
             <div className="text-[11px] font-medium text-slate-400">
               <span className={`mr-1.5 inline-block h-1.5 w-1.5 rounded-full ${isLoading ? 'animate-pulse bg-amber-500' : 'bg-emerald-500'}`} />
-              {isLoading ? (phase?.label || 'Working…') : `Live · ${selectedModel}`}
+              {isLoading ? (live.phase?.label || 'Working…') : `Live · ${selectedModel}`}
             </div>
           </div>
 
@@ -218,7 +331,7 @@ export default function AgentPage() {
               )}
 
               {messages.length === 0 && !error ? (
-                <div className="flex min-h-[55vh] flex-col items-center justify-center px-2 text-center">
+                <div className="flex min-h-[50vh] flex-col items-center justify-center px-2 text-center">
                   <div className="brand-gradient mb-5 flex h-14 w-14 items-center justify-center rounded-2xl shadow-md shadow-blue-500/20">
                     <Sparkles className="h-6 w-6 text-white" />
                   </div>
@@ -226,7 +339,7 @@ export default function AgentPage() {
                     Live on-chain tools, one click away
                   </h2>
                   <p className="mt-2 max-w-md text-sm leading-relaxed text-slate-500">
-                    Open the left rail (or Tools on mobile) and run a live tool or project brief. No duplicate prompt cards here — the rail is the onboarding funnel.
+                    Sessions autosave in this browser. Open Tools to run a live call — receipts stay attached to each finding.
                   </p>
                   <div className="mt-8 flex flex-wrap justify-center gap-2">
                     {LIVE_TOOLS.slice(0, 3).map((tool) => (
@@ -234,7 +347,7 @@ export default function AgentPage() {
                         key={tool.name}
                         type="button"
                         onClick={() => handleInvoke(tool.sample, { label: tool.label })}
-                        className="rounded-full border border-slate-200 bg-white/80 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:border-blue-300"
+                        className="min-h-11 rounded-full border border-slate-200 bg-white/80 px-4 py-2 text-xs font-semibold text-slate-700 transition hover:border-blue-300"
                       >
                         {tool.label}
                       </button>
@@ -252,8 +365,9 @@ export default function AgentPage() {
                       }
                     }
                     return messages.map((m, index) => {
-                      const isUser = m.role === 'user';
-                      if (isUser) {
+                      if (m.role === 'user') {
+                        const active = index === lastUserIndex;
+                        const receipt = receiptFor(m.id, active);
                         return (
                           <div key={m.id}>
                             <div className="briefing-query">
@@ -262,9 +376,13 @@ export default function AgentPage() {
                                 {m.content}
                               </div>
                             </div>
-                            {index === lastUserIndex && (
+                            {(receipt.tools.length > 0 || receipt.phase || (active && isLoading)) && (
                               <div className="mt-4">
-                                <ToolActivityRail phase={phase} tools={tools} isLoading={isLoading} />
+                                <ToolActivityRail
+                                  phase={receipt.phase}
+                                  tools={receipt.tools}
+                                  isLoading={active && isLoading}
+                                />
                               </div>
                             )}
                           </div>
@@ -287,40 +405,42 @@ export default function AgentPage() {
                   })()}
                 </div>
               )}
-
-              {messages.length === 0 && (isLoading || tools.length > 0) && (
-                <ToolActivityRail phase={phase} tools={tools} isLoading={isLoading} />
-              )}
               <div ref={bottomRef} />
             </div>
           </div>
 
-          <form onSubmit={onComposerSubmit} className="border-t border-slate-100/80 bg-white/55 p-4 lg:px-8">
+          <form
+            onSubmit={onComposerSubmit}
+            className="border-t border-slate-100/80 bg-white/70 p-4 backdrop-blur-md lg:px-8"
+            style={{ paddingBottom: `max(1rem, calc(1rem + ${composerPad}px))` }}
+          >
             <div className="mx-auto w-full max-w-3xl">
               {armed && (
                 <div className="mb-2 flex items-center justify-between gap-3 rounded-xl border border-blue-200 bg-blue-50/80 px-3 py-2 text-xs text-blue-900">
                   <div className="min-w-0">
                     <span className="font-bold">Armed:</span>{' '}
                     <span className="font-semibold">{armed.label}</span>
-                    <span className="ml-2 truncate text-blue-700/80">{armed.prompt.slice(0, 80)}{armed.prompt.length > 80 ? '…' : ''}</span>
+                    <span className="ml-2 truncate text-blue-700/80">
+                      {armed.prompt.slice(0, 80)}{armed.prompt.length > 80 ? '…' : ''}
+                    </span>
                   </div>
                   <div className="flex shrink-0 items-center gap-1">
-                    <button type="button" className="rounded-md px-2 py-1 font-semibold hover:bg-white/70" onClick={() => void startRun(armed.prompt)}>
+                    <button type="button" className="min-h-9 rounded-md px-2 py-1 font-semibold hover:bg-white/70" onClick={() => void startRun(armed.prompt)}>
                       Send
                     </button>
-                    <button type="button" className="rounded-md p-1 hover:bg-white/70" onClick={() => setArmed(null)} aria-label="Clear armed prompt">
+                    <button type="button" className="inline-flex min-h-9 min-w-9 items-center justify-center rounded-md hover:bg-white/70" onClick={() => setArmed(null)} aria-label="Clear armed prompt">
                       <X className="h-3.5 w-3.5" />
                     </button>
                   </div>
                 </div>
               )}
-              <div className="brand-ring flex items-end gap-3 rounded-2xl border border-slate-200 bg-white/90 p-2 shadow-sm transition-shadow focus-within:border-blue-400">
+              <div className="brand-ring flex items-end gap-3 rounded-2xl border border-slate-200 bg-white/95 p-2 shadow-sm transition-shadow focus-within:border-blue-400">
                 <textarea
                   value={input}
                   onChange={handleInputChange}
                   rows={1}
                   placeholder="Ask about prices, TVL, repos, gas — or run a tool from the rail..."
-                  className="max-h-32 min-h-[44px] flex-1 resize-none bg-transparent px-3 py-2.5 text-sm text-slate-800 outline-none placeholder:text-slate-400"
+                  className="max-h-32 min-h-[48px] flex-1 resize-none bg-transparent px-3 py-3 text-sm text-slate-800 outline-none placeholder:text-slate-400"
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && !e.shiftKey) {
                       e.preventDefault();
@@ -331,13 +451,13 @@ export default function AgentPage() {
                 <button
                   type="submit"
                   disabled={isLoading || (!input.trim() && !armed)}
-                  className="brand-gradient inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-white shadow-md shadow-blue-500/25 transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none"
+                  className="brand-gradient inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-white shadow-md shadow-blue-500/25 transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none"
                 >
                   <Send className="ml-0.5 h-4 w-4" />
                 </button>
               </div>
               <div className="mt-2 text-center text-[10.5px] font-medium text-slate-400">
-                Enter to send · Shift+Enter newline · Tool receipts stream above the answer
+                Enter to send · drafts arm instead of overwrite · session saved locally
               </div>
             </div>
           </form>
