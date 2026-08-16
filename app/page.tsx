@@ -16,12 +16,24 @@ import {
   X,
 } from 'lucide-react';
 import { Markdown } from '@/components/Markdown';
-import { RepoPanel } from '@/components/RepoPanel';
+import { RepoPanel, type WorkbenchLastTool } from '@/components/RepoPanel';
 import { ToolActivityRail, type PhaseEvent, type ToolEvent } from '@/components/ToolActivityRail';
 import { ToolResultCard } from '@/components/ToolResultCard';
 import { LIVE_TOOLS } from '@/lib/live-tools';
 import { exportBriefingMarkdown } from '@/lib/export-briefing';
-import { clearSession, loadSession, saveSession, type SessionSnapshot, type TurnReceipt } from '@/lib/session';
+import { formatFetchedAt } from '@/lib/format-time';
+import {
+  clearSession,
+  clearWorkbench,
+  loadSession,
+  loadWorkbench,
+  pushPromptHistory,
+  saveSession,
+  saveWorkbench,
+  type PromptHistoryItem,
+  type SessionSnapshot,
+  type TurnReceipt,
+} from '@/lib/session';
 
 const MODELS = [
   { id: 'deepseek-v4-flash-200k', label: 'DeepSeek V4 Flash 200K' },
@@ -77,11 +89,15 @@ function AgentConsole({ boot }: { boot: SessionSnapshot | null }) {
   const [railOpen, setRailOpen] = useState(true);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [receiptsByTurn, setReceiptsByTurn] = useState<Record<string, TurnReceipt>>(boot?.receiptsByTurn || {});
+  const [promptHistory, setPromptHistory] = useState<PromptHistoryItem[]>([]);
   const [composerPad, setComposerPad] = useState(0);
   const [retryingId, setRetryingId] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const scrollRootRef = useRef<HTMLDivElement>(null);
   const activeTurnRef = useRef<string | null>(null);
+  const stickToBottomRef = useRef(true);
+  const lastScrollKeyRef = useRef('');
 
   const {
     messages,
@@ -110,6 +126,11 @@ function AgentConsole({ boot }: { boot: SessionSnapshot | null }) {
   const live = useMemo(() => parseLiveData(data as unknown[] | undefined), [data]);
 
   useEffect(() => {
+    const wb = loadWorkbench();
+    if (wb?.promptHistory) setPromptHistory(wb.promptHistory);
+  }, []);
+
+  useEffect(() => {
     const lastUser = [...messages].reverse().find((m) => m.role === 'user');
     if (lastUser && isLoading) activeTurnRef.current = lastUser.id;
     const turnId = activeTurnRef.current || lastUser?.id;
@@ -124,9 +145,15 @@ function AgentConsole({ boot }: { boot: SessionSnapshot | null }) {
     }));
   }, [messages, isLoading, live.phase, live.tools]);
 
+  // Scroll only on structural changes (not every streamed token) and only when near bottom.
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, isLoading, live.tools, live.phase]);
+    const toolKey = live.tools.map((t) => `${t.id || t.name}:${t.status}:${t.ms ?? ''}`).join('|');
+    const key = `${messages.length}|${isLoading ? 1 : 0}|${live.phase?.phase || ''}|${toolKey}`;
+    if (key === lastScrollKeyRef.current) return;
+    lastScrollKeyRef.current = key;
+    if (!stickToBottomRef.current) return;
+    bottomRef.current?.scrollIntoView({ behavior: isLoading ? 'auto' : 'smooth' });
+  }, [messages.length, isLoading, live.phase?.phase, live.tools]);
 
   useEffect(() => {
     saveSession({
@@ -135,6 +162,10 @@ function AgentConsole({ boot }: { boot: SessionSnapshot | null }) {
       receiptsByTurn,
     });
   }, [selectedModel, messages, receiptsByTurn]);
+
+  useEffect(() => {
+    saveWorkbench(promptHistory);
+  }, [promptHistory]);
 
   useEffect(() => {
     if (!mobileOpen) return;
@@ -161,7 +192,23 @@ function AgentConsole({ boot }: { boot: SessionSnapshot | null }) {
     };
   }, []);
 
-  const startRun = async (prompt: string) => {
+  const lastTools = useMemo((): WorkbenchLastTool[] => {
+    const items: WorkbenchLastTool[] = [];
+    for (let i = messages.length - 1; i >= 0; i -= 1) {
+      const m = messages[i];
+      if (m.role !== 'user') continue;
+      const tools = receiptsByTurn[m.id]?.tools || [];
+      for (let j = tools.length - 1; j >= 0; j -= 1) {
+        const tool = tools[j];
+        if (tool.status === 'running' || !tool.card) continue;
+        items.push({ tool, turnId: m.id });
+        if (items.length >= 4) return items;
+      }
+    }
+    return items;
+  }, [messages, receiptsByTurn]);
+
+  const startRun = async (prompt: string, meta?: { label?: string }) => {
     const text = prompt.trim();
     if (!text || isLoading) return;
     setArmed(null);
@@ -169,6 +216,10 @@ function AgentConsole({ boot }: { boot: SessionSnapshot | null }) {
     setError(null);
     setData(undefined);
     activeTurnRef.current = null;
+    stickToBottomRef.current = true;
+    setPromptHistory((prev) =>
+      pushPromptHistory(prev, { prompt: text, label: meta?.label, at: Date.now() }),
+    );
     await append({ role: 'user', content: text });
   };
 
@@ -178,26 +229,29 @@ function AgentConsole({ boot }: { boot: SessionSnapshot | null }) {
       setMobileOpen(false);
       return;
     }
-    void startRun(prompt);
+    void startRun(prompt, meta);
   };
 
   const onComposerSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const prompt = armed?.prompt || input;
     if (!prompt.trim() || isLoading) return;
+    const label = armed?.label;
     setInput('');
-    void startRun(prompt);
+    void startRun(prompt, label ? { label } : undefined);
   };
 
   const clearChat = () => {
     if (isLoading) return;
     setMessages([]);
     setReceiptsByTurn({});
+    setPromptHistory([]);
     setData(undefined);
     setArmed(null);
     setError(null);
     activeTurnRef.current = null;
     clearSession();
+    clearWorkbench();
   };
 
   const retryTool = async (turnId: string, tool: ToolEvent) => {
@@ -220,6 +274,7 @@ function AgentConsole({ boot }: { boot: SessionSnapshot | null }) {
             ...t,
             status: payload.status,
             ms: payload.ms,
+            completedAt: payload.completedAt || Date.now(),
             card: payload.card,
             source: payload.source || t.source,
             label: payload.label || t.label,
@@ -251,6 +306,13 @@ function AgentConsole({ boot }: { boot: SessionSnapshot | null }) {
       return { phase: live.phase, tools: live.tools };
     }
     return receiptsByTurn[userMessageId] || { tools: [] };
+  };
+
+  const onScrollRoot = () => {
+    const el = scrollRootRef.current;
+    if (!el) return;
+    const distance = el.scrollHeight - el.scrollTop - el.clientHeight;
+    stickToBottomRef.current = distance < 96;
   };
 
   return (
@@ -338,7 +400,14 @@ function AgentConsole({ boot }: { boot: SessionSnapshot | null }) {
           }`}
         >
           <div className="flex h-full w-full flex-col p-3">
-            <RepoPanel onInvoke={handleInvoke} compact={!railOpen} />
+            <RepoPanel
+              onInvoke={handleInvoke}
+              compact={!railOpen}
+              promptHistory={promptHistory}
+              lastTools={lastTools}
+              onRetryTool={(turnId, tool) => void retryTool(turnId, tool)}
+              retryingId={retryingId}
+            />
           </div>
         </aside>
 
@@ -364,7 +433,13 @@ function AgentConsole({ boot }: { boot: SessionSnapshot | null }) {
               </div>
               <div className="min-h-0 flex-1 overflow-hidden px-3 pb-3">
                 <div className="h-[min(68dvh,560px)]">
-                  <RepoPanel onInvoke={handleInvoke} />
+                  <RepoPanel
+                    onInvoke={handleInvoke}
+                    promptHistory={promptHistory}
+                    lastTools={lastTools}
+                    onRetryTool={(turnId, tool) => void retryTool(turnId, tool)}
+                    retryingId={retryingId}
+                  />
                 </div>
               </div>
             </div>
@@ -380,7 +455,11 @@ function AgentConsole({ boot }: { boot: SessionSnapshot | null }) {
             </div>
           </div>
 
-          <div className="scrollbar-thin flex-1 overflow-y-auto px-4 py-6 lg:px-8">
+          <div
+            ref={scrollRootRef}
+            onScroll={onScrollRoot}
+            className="scrollbar-thin flex-1 overflow-y-auto px-4 py-6 lg:px-8"
+          >
             <div className="mx-auto w-full max-w-3xl">
               {error && (
                 <div className="mb-4 flex gap-2 rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-700">
@@ -459,6 +538,7 @@ function AgentConsole({ boot }: { boot: SessionSnapshot | null }) {
                       const highlightCards = prevReceipt.tools.filter(
                         (t) => (t.status === 'done' || t.status === 'error') && t.card && t.card.kind !== 'generic'
                       );
+                      const streamingFinding = prevIsActive && isLoading;
 
                       return (
                         <div key={m.id}>
@@ -467,21 +547,32 @@ function AgentConsole({ boot }: { boot: SessionSnapshot | null }) {
                               <Bot className="h-3 w-3 text-white" />
                             </span>
                             Finding
+                            {streamingFinding ? (
+                              <span className="font-medium normal-case tracking-normal text-amber-600/90">streaming</span>
+                            ) : null}
                           </div>
-                          <div className="finding-panel px-5 py-4">
+                          <div className={`finding-panel px-5 py-4 ${streamingFinding ? 'finding-panel--live' : ''}`}>
                             {highlightCards.length > 0 ? (
-                              <div className="finding-tools">
-                                {highlightCards.map((t) => (
-                                  <div key={t.id || t.name}>
-                                    <div className="mb-1.5 text-[10px] font-bold uppercase tracking-[0.1em] text-slate-400">
-                                      {t.label || t.name}
+                              <div className={`finding-tools ${streamingFinding ? 'finding-tools--pinned' : ''}`}>
+                                {highlightCards.map((t) => {
+                                  const fresh = formatFetchedAt(t.completedAt);
+                                  return (
+                                    <div key={t.id || t.name}>
+                                      <div className="mb-1.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] font-bold uppercase tracking-[0.1em] text-slate-400">
+                                        <span>{t.label || t.name}</span>
+                                        {t.source ? <span className="font-medium normal-case tracking-normal text-slate-400">· {t.source}</span> : null}
+                                        {fresh ? <span className="font-medium normal-case tracking-normal text-slate-400">· {fresh}</span> : null}
+                                        {t.ms != null ? <span className="font-mono font-medium normal-case tracking-normal text-slate-400">· {t.ms}ms</span> : null}
+                                      </div>
+                                      {t.card ? <ToolResultCard card={t.card} flush /> : null}
                                     </div>
-                                    {t.card ? <ToolResultCard card={t.card} flush /> : null}
-                                  </div>
-                                ))}
+                                  );
+                                })}
                               </div>
                             ) : null}
-                            <Markdown>{m.content || ''}</Markdown>
+                            <div className={streamingFinding && !m.content ? 'min-h-[1.25rem]' : undefined}>
+                              <Markdown>{m.content || (streamingFinding ? '_Synthesizing…_' : '')}</Markdown>
+                            </div>
                           </div>
                         </div>
                       );
@@ -509,7 +600,7 @@ function AgentConsole({ boot }: { boot: SessionSnapshot | null }) {
                     </span>
                   </div>
                   <div className="flex shrink-0 items-center gap-1">
-                    <button type="button" className="min-h-9 rounded-md px-2 py-1 font-semibold hover:bg-white/70" onClick={() => void startRun(armed.prompt)}>
+                    <button type="button" className="min-h-9 rounded-md px-2 py-1 font-semibold hover:bg-white/70" onClick={() => void startRun(armed.prompt, { label: armed.label })}>
                       Send
                     </button>
                     <button type="button" className="inline-flex min-h-9 min-w-9 items-center justify-center rounded-md hover:bg-white/70" onClick={() => setArmed(null)} aria-label="Clear armed prompt">

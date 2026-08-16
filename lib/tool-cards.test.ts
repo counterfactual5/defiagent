@@ -4,8 +4,20 @@ import { dirname, join } from 'node:path';
 import { describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { buildToolCard } from './tool-cards.ts';
-import { clearSession, loadSession, saveSession, SESSION_KEY } from './session.ts';
+import {
+  clearSession,
+  clearWorkbench,
+  loadSession,
+  loadWorkbench,
+  pushPromptHistory,
+  saveSession,
+  saveWorkbench,
+  SESSION_KEY,
+  WORKBENCH_KEY,
+} from './session.ts';
 import { exportBriefingMarkdown } from './export-briefing.ts';
+import { formatFetchedAt } from './format-time.ts';
+import { POST_TOOL_SYSTEM, SYSTEM_PROMPT } from './system-prompt.ts';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const fixture = (name: string) => readFileSync(join(root, 'fixtures', `${name}.json`), 'utf8');
@@ -97,7 +109,8 @@ describe('session persistence', () => {
 });
 
 describe('exportBriefingMarkdown', () => {
-  it('includes query, receipts, and finding', () => {
+  it('includes query, receipts, freshness, and finding', () => {
+    const completedAt = Date.UTC(2026, 7, 16, 9, 0, 0);
     const md = exportBriefingMarkdown(
       [
         { id: 'u1', role: 'user', content: 'price of eth?' } as any,
@@ -111,15 +124,59 @@ describe('exportBriefingMarkdown', () => {
             label: 'Token Price',
             status: 'done',
             source: 'CoinGecko',
+            ms: 420,
+            completedAt,
             card: { kind: 'price', title: 'Token Price', items: [{ id: 'ethereum', usd: 1800, change24h: 1.2 }] },
           }],
         },
-      }
+      },
+      { now: completedAt + 12_000 },
     );
     assert.match(md, /## Query/);
     assert.match(md, /price of eth/);
     assert.match(md, /Token Price/);
+    assert.match(md, /420ms/);
+    assert.match(md, /fetched 12s ago/);
+    assert.match(md, /2026-08-16T09:00:00.000Z/);
     assert.match(md, /## Finding/);
     assert.match(md, /1,800/);
+    assert.match(md, /\+1\.2%/);
+  });
+});
+
+describe('formatFetchedAt', () => {
+  it('formats relative freshness', () => {
+    const now = 1_000_000;
+    assert.equal(formatFetchedAt(now - 2_000, now), 'just now');
+    assert.equal(formatFetchedAt(now - 12_000, now), '12s ago');
+    assert.equal(formatFetchedAt(now - 120_000, now), '2m ago');
+  });
+});
+
+describe('system prompt briefing contract', () => {
+  it('requires Finding → Evidence structure', () => {
+    assert.match(SYSTEM_PROMPT, /Finding/);
+    assert.match(SYSTEM_PROMPT, /Evidence/);
+    assert.match(POST_TOOL_SYSTEM, /Finding → Evidence/);
+  });
+});
+
+describe('workbench prompt history', () => {
+  it('round-trips recent prompts', () => {
+    const store = new Map<string, string>();
+    (globalThis as any).window = globalThis;
+    (globalThis as any).localStorage = {
+      getItem: (k: string) => store.get(k) ?? null,
+      setItem: (k: string, v: string) => { store.set(k, v); },
+      removeItem: (k: string) => { store.delete(k); },
+    };
+
+    const history = pushPromptHistory([], { prompt: 'gas on eth?', label: 'Gas', at: 1 });
+    saveWorkbench(history);
+    const loaded = loadWorkbench();
+    assert.equal(loaded?.promptHistory[0].prompt, 'gas on eth?');
+    clearWorkbench();
+    assert.equal(loadWorkbench(), null);
+    assert.equal(store.has(WORKBENCH_KEY), false);
   });
 });

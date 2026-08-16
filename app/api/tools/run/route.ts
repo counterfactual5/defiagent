@@ -32,6 +32,7 @@ export async function POST(req: Request) {
       source: toolSource(name),
       status: failed ? 'error' : 'done',
       ms,
+      completedAt: Date.now(),
       card,
       args,
       result,
