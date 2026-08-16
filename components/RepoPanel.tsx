@@ -1,9 +1,23 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Code2, ExternalLink, GitFork, Github, Star, Wrench, Zap } from 'lucide-react';
+import {
+  Clock3,
+  Code2,
+  ExternalLink,
+  GitFork,
+  Github,
+  History,
+  RotateCcw,
+  Star,
+  Wrench,
+  Zap,
+} from 'lucide-react';
 import { REPOS } from '@/lib/repos';
 import { LIVE_TOOLS } from '@/lib/live-tools';
+import { formatFetchedAt } from '@/lib/format-time';
+import type { PromptHistoryItem } from '@/lib/session';
+import type { ToolEvent } from '@/components/ToolActivityRail';
 
 interface RepoStats {
   name: string;
@@ -11,13 +25,29 @@ interface RepoStats {
   forks: number | null;
 }
 
+export type WorkbenchLastTool = {
+  tool: ToolEvent;
+  turnId: string;
+};
+
 type Props = {
   /** One-tap: send immediately (or stage when draft exists — handled by parent). */
   onInvoke: (prompt: string, meta?: { label: string }) => void;
   compact?: boolean;
+  promptHistory?: PromptHistoryItem[];
+  lastTools?: WorkbenchLastTool[];
+  onRetryTool?: (turnId: string, tool: ToolEvent) => void;
+  retryingId?: string | null;
 };
 
-export function RepoPanel({ onInvoke, compact = false }: Props) {
+export function RepoPanel({
+  onInvoke,
+  compact = false,
+  promptHistory = [],
+  lastTools = [],
+  onRetryTool,
+  retryingId,
+}: Props) {
   const [stats, setStats] = useState<Record<string, RepoStats>>({});
 
   useEffect(() => {
@@ -90,6 +120,78 @@ export function RepoPanel({ onInvoke, compact = false }: Props) {
           </button>
         ))}
       </div>
+
+      {(lastTools.length > 0 || promptHistory.length > 0) && (
+        <div className="border-t border-slate-200/70 px-3 py-3">
+          {lastTools.length > 0 && (
+            <div className="mb-3">
+              <div className="mb-2 flex items-center gap-2 px-1 text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                <Clock3 className="h-3 w-3" />
+                Last tool results
+              </div>
+              <div className="space-y-1.5">
+                {lastTools.slice(0, 4).map(({ tool, turnId }) => {
+                  const key = tool.id || tool.name;
+                  const busy = retryingId === key;
+                  const fresh = formatFetchedAt(tool.completedAt);
+                  return (
+                    <div
+                      key={`${turnId}-${key}`}
+                      className="flex items-center justify-between gap-2 rounded-lg border border-slate-200/70 bg-white/70 px-2.5 py-2"
+                    >
+                      <div className="min-w-0">
+                        <div className="truncate text-[11px] font-semibold text-slate-800">
+                          {tool.label || tool.name}
+                        </div>
+                        <div className="truncate text-[10px] text-slate-500">
+                          {[tool.status, tool.source, fresh].filter(Boolean).join(' · ')}
+                        </div>
+                      </div>
+                      {onRetryTool && tool.status !== 'running' ? (
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() => onRetryTool(turnId, tool)}
+                          className="inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-[10px] font-semibold text-slate-600 transition hover:bg-slate-100 disabled:opacity-50"
+                        >
+                          <RotateCcw className={`h-3 w-3 ${busy ? 'animate-spin' : ''}`} />
+                          Retry
+                        </button>
+                      ) : null}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {promptHistory.length > 0 && (
+            <div>
+              <div className="mb-2 flex items-center gap-2 px-1 text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                <History className="h-3 w-3" />
+                Recent prompts
+              </div>
+              <div className="space-y-1">
+                {promptHistory.slice(0, 6).map((item) => (
+                  <button
+                    key={`${item.at}-${item.prompt.slice(0, 24)}`}
+                    type="button"
+                    onClick={() => onInvoke(item.prompt, { label: item.label || 'Recent' })}
+                    className="block w-full rounded-lg border border-transparent px-2.5 py-1.5 text-left transition hover:border-slate-200 hover:bg-white"
+                  >
+                    <div className="truncate text-[11px] font-medium text-slate-700">
+                      {item.label || item.prompt}
+                    </div>
+                    {item.label ? (
+                      <div className="truncate text-[10px] text-slate-400">{item.prompt}</div>
+                    ) : null}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="border-t border-slate-200/70 px-4 py-3">
         <div className="mb-1 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-500">

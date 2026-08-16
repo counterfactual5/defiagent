@@ -481,6 +481,10 @@ body {
   box-shadow: var(--shadow-sm);
 }
 
+.finding-panel--live {
+  box-shadow: inset 3px 0 0 rgba(37, 99, 235, 0.45);
+}
+
 .finding-tools {
   display: flex;
   flex-direction: column;
@@ -488,6 +492,11 @@ body {
   padding-bottom: 1rem;
   margin-bottom: 1rem;
   border-bottom: 1px solid rgba(15, 23, 42, 0.07);
+}
+
+.finding-tools--pinned {
+  /* Keep tool evidence visually stable while markdown streams below. */
+  position: relative;
 }
 
 .query-panel {

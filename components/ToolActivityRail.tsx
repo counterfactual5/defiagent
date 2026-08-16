@@ -2,6 +2,7 @@
 
 import { Activity, CheckCircle2, Loader2, RotateCcw, XCircle } from 'lucide-react';
 import type { ToolCard } from '@/lib/tool-cards';
+import { formatFetchedAt } from '@/lib/format-time';
 import { ToolResultCard } from '@/components/ToolResultCard';
 
 export type ToolEvent = {
@@ -12,6 +13,8 @@ export type ToolEvent = {
   source?: string;
   status: 'running' | 'done' | 'error';
   ms?: number;
+  /** Wall-clock ms when the tool finished (for freshness). */
+  completedAt?: number;
   card?: ToolCard | null;
   args?: Record<string, unknown>;
 };
@@ -57,6 +60,7 @@ export function ToolActivityRail({
       {tools.map((tool) => {
         const key = tool.id || tool.name;
         const busy = retryingId === key;
+        const fresh = formatFetchedAt(tool.completedAt);
         return (
           <div key={key} className="space-y-2">
             <div className="tool-row">
@@ -72,7 +76,9 @@ export function ToolActivityRail({
                 )}
                 <div className="min-w-0">
                   <div className="tool-row__label">{tool.label || tool.name}</div>
-                  {tool.source ? <div className="tool-row__detail">{tool.source}</div> : null}
+                  <div className="tool-row__detail">
+                    {[tool.source, fresh].filter(Boolean).join(' · ')}
+                  </div>
                 </div>
               </div>
               <div className="flex shrink-0 items-center gap-2">
