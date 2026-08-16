@@ -1,7 +1,40 @@
 'use client';
 
+import type { ReactNode } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+
+function isMetricishTable(children: ReactNode): boolean {
+  const text = collectText(children).toLowerCase();
+  return /\$|usd|tvl|%|gwei|price|eth|btc/.test(text);
+}
+
+function collectText(node: ReactNode): string {
+  if (node == null || typeof node === 'boolean') return '';
+  if (typeof node === 'string' || typeof node === 'number') return String(node);
+  if (Array.isArray(node)) return node.map(collectText).join(' ');
+  if (typeof node === 'object' && node !== null && 'props' in node) {
+    return collectText((node as { props?: { children?: ReactNode } }).props?.children);
+  }
+  return '';
+}
+
+function citationLabel(href?: string): string | null {
+  if (!href) return null;
+  try {
+    const host = new URL(href).hostname.replace(/^www\./, '');
+    if (host.includes('coingecko')) return 'CoinGecko';
+    if (host.includes('llama.fi') || host.includes('defillama')) return 'DefiLlama';
+    if (host.includes('github.com')) return 'GitHub';
+    if (host.includes('etherscan')) return 'Etherscan';
+    if (host.includes('uniswap.org')) return 'Uniswap';
+    if (host.includes('hyperliquid')) return 'Hyperliquid';
+    if (host.includes('polymarket')) return 'Polymarket';
+    return host;
+  } catch {
+    return null;
+  }
+}
 
 export function Markdown({ children }: { children: string }) {
   return (
@@ -17,11 +50,15 @@ export function Markdown({ children }: { children: string }) {
           ul: ({ children }) => <ul className="md-ul">{children}</ul>,
           ol: ({ children }) => <ol className="md-ol">{children}</ol>,
           li: ({ children }) => <li className="md-li">{children}</li>,
-          a: ({ href, children }) => (
-            <a href={href} target="_blank" rel="noreferrer" className="md-a">
-              {children}
-            </a>
-          ),
+          a: ({ href, children }) => {
+            const chip = citationLabel(href);
+            return (
+              <a href={href} target="_blank" rel="noreferrer" className={chip ? 'md-cite' : 'md-a'}>
+                {chip ? <span className="md-cite-chip">{chip}</span> : null}
+                <span>{children}</span>
+              </a>
+            );
+          },
           code: ({ className, children, ...props }) => {
             const isBlock = Boolean(className);
             if (isBlock) {
@@ -39,7 +76,7 @@ export function Markdown({ children }: { children: string }) {
           },
           pre: ({ children }) => <pre className="md-pre">{children}</pre>,
           table: ({ children }) => (
-            <div className="md-table-wrap">
+            <div className={`md-table-wrap ${isMetricishTable(children) ? 'md-table-metric' : ''}`}>
               <table className="md-table">{children}</table>
             </div>
           ),
