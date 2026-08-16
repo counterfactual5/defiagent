@@ -1,4 +1,6 @@
 import OpenAI from 'openai';
+import { buildToolCard } from '@/lib/tool-cards';
+import { toolLabel, toolSource } from '@/lib/tool-meta';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -430,27 +432,45 @@ function jsonError(message: string, status = 500) {
   return new Response(JSON.stringify({ error: message }), { status, headers: { 'Content-Type': 'application/json' } });
 }
 
-function aiSdkV3TextStream(chunks: AsyncIterable<string>): ReadableStream<Uint8Array> {
-  const encoder = new TextEncoder();
-  return new ReadableStream({
-    async start(controller) {
-      try {
-        for await (const chunk of chunks) if (chunk) controller.enqueue(encoder.encode(`0:${JSON.stringify(chunk)}\n`));
-        controller.enqueue(encoder.encode(`d:${JSON.stringify({ finishReason: 'stop' })}\n`));
-      } catch (error) {
-        controller.enqueue(encoder.encode(`d:${JSON.stringify({ finishReason: 'error', error: String((error as any)?.message || error) })}\n`));
-      } finally {
-        controller.close();
-      }
-    },
-  });
-}
-
 async function* chunkText(text: string) {
   for (const chunk of text.match(/[\s\S]{1,48}/g) || [text]) {
     yield chunk;
     await new Promise((resolve) => setTimeout(resolve, 5));
   }
+}
+
+type StreamController = ReadableStreamDefaultController<Uint8Array>;
+
+function createStreamHelpers(controller: StreamController) {
+  const encoder = new TextEncoder();
+  return {
+    sendData(payload: Record<string, unknown>) {
+      controller.enqueue(encoder.encode(`2:${JSON.stringify([payload])}\n`));
+    },
+    sendText(chunk: string) {
+      if (chunk) controller.enqueue(encoder.encode(`0:${JSON.stringify(chunk)}\n`));
+    },
+    finish(reason: 'stop' | 'error' = 'stop', error?: string) {
+      const body = error ? { finishReason: reason, error } : { finishReason: reason };
+      controller.enqueue(encoder.encode(`d:${JSON.stringify(body)}\n`));
+    },
+  };
+}
+
+function agentDataStream(work: (helpers: ReturnType<typeof createStreamHelpers>) => Promise<void>): ReadableStream<Uint8Array> {
+  return new ReadableStream({
+    async start(controller) {
+      const helpers = createStreamHelpers(controller);
+      try {
+        await work(helpers);
+        helpers.finish('stop');
+      } catch (error) {
+        helpers.finish('error', String((error as any)?.message || error));
+      } finally {
+        controller.close();
+      }
+    },
+  });
 }
 
 export async function POST(req: Request) {
@@ -463,35 +483,79 @@ export async function POST(req: Request) {
 
     const openai = new OpenAI({ apiKey, baseURL });
     const baseMessages: any[] = [{ role: 'system', content: SYSTEM_PROMPT }, ...messages];
-    const first: any = await openai.chat.completions.create({
-      model, stream: false, messages: baseMessages, tools: TOOL_DEFINITIONS as any, tool_choice: 'auto',
-    } as any);
-    const firstMsg: any = first.choices?.[0]?.message || {};
-    let toolCalls: any[] = firstMsg.tool_calls || [];
-    if (toolCalls.length === 0) toolCalls = parseDsmlToolCalls(String(firstMsg.content || ''));
 
-    if (toolCalls.length === 0) {
-      const text = stripInternalToolSyntax(String(firstMsg.content || '')) || 'The model returned no displayable response.';
-      return new Response(aiSdkV3TextStream(chunkText(text)), {
-        headers: { 'Content-Type': 'text/plain; charset=utf-8', 'X-Vercel-AI-Data-Stream': 'v1' },
+    const stream = agentDataStream(async ({ sendData, sendText }) => {
+      sendData({ type: 'phase', phase: 'routing', label: 'Routing intent' });
+
+      const first: any = await openai.chat.completions.create({
+        model, stream: false, messages: baseMessages, tools: TOOL_DEFINITIONS as any, tool_choice: 'auto',
+      } as any);
+      const firstMsg: any = first.choices?.[0]?.message || {};
+      let toolCalls: any[] = firstMsg.tool_calls || [];
+      if (toolCalls.length === 0) toolCalls = parseDsmlToolCalls(String(firstMsg.content || ''));
+
+      if (toolCalls.length === 0) {
+        sendData({ type: 'phase', phase: 'answer', label: 'Writing answer' });
+        const text = stripInternalToolSyntax(String(firstMsg.content || '')) || 'The model returned no displayable response.';
+        for await (const chunk of chunkText(text)) sendText(chunk);
+        return;
+      }
+
+      sendData({ type: 'phase', phase: 'tools', label: `Running ${toolCalls.length} tool${toolCalls.length > 1 ? 's' : ''}` });
+
+      const assistantToolMessage = { role: 'assistant', content: null, tool_calls: toolCalls };
+      const conversation: any[] = [...baseMessages, assistantToolMessage];
+
+      for (const call of toolCalls) {
+        const name = String(call.function?.name || 'tool');
+        let toolArgs: any = {};
+        try { toolArgs = JSON.parse(call.function?.arguments || '{}'); } catch { toolArgs = {}; }
+
+        sendData({
+          type: 'tool',
+          id: call.id,
+          name,
+          label: toolLabel(name),
+          source: toolSource(name),
+          status: 'running',
+        });
+
+        const started = Date.now();
+        const result = await executeTool(name, toolArgs);
+        const ms = Date.now() - started;
+        const card = buildToolCard(name, result);
+        const failed = (() => {
+          try { return Boolean(JSON.parse(result)?.error); } catch { return false; }
+        })();
+
+        sendData({
+          type: 'tool',
+          id: call.id,
+          name,
+          label: toolLabel(name),
+          source: toolSource(name),
+          status: failed ? 'error' : 'done',
+          ms,
+          card,
+        });
+
+        conversation.push({ role: 'tool', tool_call_id: call.id, content: result });
+      }
+
+      conversation.push({
+        role: 'system',
+        content: 'Tool execution is complete. Answer only from the supplied tool results. Do not emit or request DSML/tool_calls. If a tool failed or returned a plan rather than a quote, state that plainly.',
       });
-    }
 
-    const assistantToolMessage = { role: 'assistant', content: null, tool_calls: toolCalls };
-    const conversation: any[] = [...baseMessages, assistantToolMessage];
-    for (const call of toolCalls) {
-      let toolArgs: any = {};
-      try { toolArgs = JSON.parse(call.function?.arguments || '{}'); } catch { toolArgs = {}; }
-      const result = await executeTool(call.function?.name, toolArgs);
-      conversation.push({ role: 'tool', tool_call_id: call.id, content: result });
-    }
-    conversation.push({
-      role: 'system',
-      content: 'Tool execution is complete. Answer only from the supplied tool results. Do not emit or request DSML/tool_calls. If a tool failed or returned a plan rather than a quote, state that plainly.',
+      sendData({ type: 'phase', phase: 'synthesize', label: 'Synthesizing answer' });
+      const response = await openai.chat.completions.create({ model, stream: true, messages: conversation } as any);
+      let raw = '';
+      for await (const chunk of response as any) raw += chunk?.choices?.[0]?.delta?.content || '';
+      const clean = stripInternalToolSyntax(raw) || 'The model returned no displayable response.';
+      for await (const piece of chunkText(clean)) sendText(piece);
     });
 
-    const response = await openai.chat.completions.create({ model, stream: true, messages: conversation } as any);
-    return new Response(aiSdkV3TextStream(toCleanTextStream(response as any)), {
+    return new Response(stream, {
       headers: { 'Content-Type': 'text/plain; charset=utf-8', 'X-Vercel-AI-Data-Stream': 'v1' },
     });
   } catch (err: any) {
@@ -500,11 +564,4 @@ export async function POST(req: Request) {
     const detail = err?.error?.message || err?.message || String(err || 'Upstream model request failed.');
     return jsonError(`${detail}${status ? ` (HTTP ${status})` : ''}`);
   }
-}
-
-async function* toCleanTextStream(response: any) {
-  let raw = '';
-  for await (const chunk of response) raw += chunk?.choices?.[0]?.delta?.content || '';
-  const clean = stripInternalToolSyntax(raw) || 'The model returned no displayable response.';
-  yield* chunkText(clean);
 }
