@@ -42,9 +42,9 @@ export function ToolActivityRail({
   if (!isLoading && tools.length === 0 && !phase) return null;
 
   return (
-    <div className="mb-4 space-y-2">
-      {phase && (
-        <div className="flex items-center gap-2 rounded-xl border border-blue-200/70 bg-blue-50/70 px-3 py-2 text-[11px] font-medium text-blue-800">
+    <div className="tool-rail">
+      {phase ? (
+        <div className="tool-phase">
           {isLoading ? (
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
           ) : (
@@ -52,41 +52,49 @@ export function ToolActivityRail({
           )}
           <span>{phase.label || phase.phase}</span>
         </div>
-      )}
+      ) : null}
 
       {tools.map((tool) => {
         const key = tool.id || tool.name;
         const busy = retryingId === key;
         return (
           <div key={key} className="space-y-2">
-            <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-200/80 bg-white/80 px-3 py-2 text-[11px]">
+            <div className="tool-row">
               <div className="flex min-w-0 items-center gap-2">
-                {(tool.status === 'running' || busy) && <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-blue-600" />}
-                {tool.status === 'done' && !busy && <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-600" />}
-                {tool.status === 'error' && !busy && <XCircle className="h-3.5 w-3.5 shrink-0 text-red-500" />}
+                {(tool.status === 'running' || busy) && (
+                  <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-blue-600" />
+                )}
+                {tool.status === 'done' && !busy && (
+                  <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-600" />
+                )}
+                {tool.status === 'error' && !busy && (
+                  <XCircle className="h-3.5 w-3.5 shrink-0 text-red-500" />
+                )}
                 <div className="min-w-0">
-                  <div className="truncate font-semibold text-slate-800">{tool.label || tool.name}</div>
-                  <div className="truncate text-slate-500">{tool.source}</div>
+                  <div className="tool-row__label">{tool.label || tool.name}</div>
+                  {tool.source ? <div className="tool-row__detail">{tool.source}</div> : null}
                 </div>
               </div>
               <div className="flex shrink-0 items-center gap-2">
-                <span className="font-mono text-slate-400">
+                <span className="font-mono text-[11px] text-slate-400">
                   {tool.status === 'running' || busy ? '…' : tool.ms != null ? `${tool.ms}ms` : ''}
                 </span>
-                {tool.status === 'error' && onRetry && (
+                {tool.status === 'error' && onRetry ? (
                   <button
                     type="button"
                     disabled={busy || isLoading}
                     onClick={() => onRetry(tool)}
-                    className="inline-flex items-center gap-1 rounded-md border border-red-200 bg-red-50 px-2 py-1 font-semibold text-red-700 transition hover:bg-red-100 disabled:opacity-50"
+                    className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-semibold text-red-700 transition hover:bg-red-50 disabled:opacity-50"
                   >
                     <RotateCcw className="h-3 w-3" />
                     Retry
                   </button>
-                )}
+                ) : null}
               </div>
             </div>
-            {showCards && tool.card && tool.status !== 'running' && !busy && <ToolResultCard card={tool.card} />}
+            {showCards && tool.card && tool.status !== 'running' && !busy ? (
+              <ToolResultCard card={tool.card} />
+            ) : null}
           </div>
         );
       })}
