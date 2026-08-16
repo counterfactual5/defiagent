@@ -8,8 +8,12 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        background: 'var(--background)',
-        foreground: 'var(--foreground)',
+        background: 'var(--bg)',
+        foreground: 'var(--text)',
+      },
+      fontFamily: {
+        sans: ['var(--font)', 'system-ui', 'sans-serif'],
+        mono: ['var(--font-mono)', 'ui-monospace', 'monospace'],
       },
     },
   },
