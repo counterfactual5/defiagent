@@ -1,0 +1,240 @@
+{
+  "source": "uni-exec-engine",
+  "data": {
+    "action": "trading_api_quote",
+    "chain": {
+      "key": "ethereum",
+      "chainId": 1
+    },
+    "tokenIn": {
+      "kind": "native",
+      "symbol": "ETH",
+      "address": "NATIVE",
+      "decimals": 18
+    },
+    "tokenOut": {
+      "kind": "erc20",
+      "symbol": "USDC",
+      "address": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+      "decimals": 6,
+      "category": "stablecoin",
+      "isStable": true,
+      "priceHint": "stable_usd"
+    },
+    "apiTokenIn": {
+      "kind": "native",
+      "symbol": "ETH",
+      "address": "0x0000000000000000000000000000000000000000",
+      "decimals": 18,
+      "nativeInput": true
+    },
+    "apiTokenOut": {
+      "kind": "erc20",
+      "symbol": "USDC",
+      "address": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+      "decimals": 6,
+      "category": "stablecoin",
+      "isStable": true,
+      "priceHint": "stable_usd"
+    },
+    "wallet": null,
+    "humanAmount": "1",
+    "baseAmount": "1000000000000000000",
+    "slippage": 0.5,
+    "slippageSource": "manual",
+    "on_chain_quote": {
+      "available": true,
+      "source": "uni-exec-engine.tick_to_price applied to on-chain V3 slot0 (read via urllib)",
+      "rpc_used": "https://ethereum.publicnode.com",
+      "pool": "0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8",
+      "fee_tier": 3000,
+      "token0": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+      "token1": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+      "token0_symbol": "USDC",
+      "token1_symbol": "WETH",
+      "tick": 200939,
+      "sqrtPriceX96": "1828111381899267178844771260423889",
+      "price_token1_per_token0": 5.3239453094345395e+20,
+      "expected_output_if_no_slippage": 1878.3062970803198,
+      "note": "Live V3 pool mid price from the on-chain slot0 state. Actual swap will incur slippage."
+    },
+    "coingecko_indicative": {
+      "available": true,
+      "source": "uni-exec-engine.price_feed.get_eth_price (CoinGecko reference)",
+      "eth_usd": 1879.17,
+      "expected_output_usd_stable": 1879.17
+    },
+    "requestPayloads": {
+      "checkApproval": null,
+      "quote": {
+        "swapper": "0x0000000000000000000000000000000000000001",
+        "tokenIn": "0x0000000000000000000000000000000000000000",
+        "tokenOut": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+        "tokenInChainId": 1,
+        "tokenOutChainId": 1,
+        "amount": "1000000000000000000",
+        "type": "EXACT_INPUT",
+        "slippageTolerance": 0.5,
+        "routingPreference": "BEST_PRICE"
+      }
+    },
+    "deepLink": "https://app.uniswap.org/swap?chain=ethereum&inputCurrency=0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE&outputCurrency=0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48&value=1&field=INPUT",
+    "execution_links": {
+      "uniswap_app": "https://app.uniswap.org/swap?chain=ethereum&inputCurrency=0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE&outputCurrency=0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48&value=1&field=INPUT",
+      "source": "uni-exec-engine.swap.links.deep_link (uniswap-ai style)",
+      "note": "Open this link to review and sign the swap in the Uniswap web app. The agent does not broadcast transactions for you."
+    },
+    "requestOnly": false,
+    "quoteSummary": {
+      "routing": "CLASSIC",
+      "priceImpact": 0.02,
+      "outputAmount": "1878827157",
+      "gasFee": "21506809563870",
+      "gasFeeUSD": "0.032058887010301566",
+      "gasUseEstimate": "403719"
+    },
+    "rawQuote": {
+      "requestId": "47938bbf4a711e5c55e827cdb4de6b2b",
+      "routing": "CLASSIC",
+      "isTokenApprovalApplicable": false,
+      "permitData": null,
+      "permitTransaction": null,
+      "quote": {
+        "chainId": 1,
+        "swapper": "0x0000000000000000000000000000000000000001",
+        "tradeType": "EXACT_INPUT",
+        "route": [
+          [
+            {
+              "type": "v3-pool",
+              "address": "0xc7bBeC68d12a0d1830360F8Ec58fA599bA1b0e9b",
+              "tokenIn": {
+                "address": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+                "chainId": 1,
+                "symbol": "WETH",
+                "decimals": "18"
+              },
+              "tokenOut": {
+                "address": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+                "chainId": 1,
+                "symbol": "USDT",
+                "decimals": "6"
+              },
+              "sqrtRatioX96": "3436212955001523948223433",
+              "liquidity": "224265206057767382",
+              "tickCurrent": "-200925",
+              "fee": "100",
+              "amountIn": "500000000000000000"
+            },
+            {
+              "type": "v4-pool",
+              "address": "0x0fb0e40cec3bb23e13abc585958a93c796fbea56955e19a23727a716a0423239",
+              "tokenIn": {
+                "address": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+                "chainId": 1,
+                "symbol": "USDT",
+                "decimals": "6"
+              },
+              "tokenOut": {
+                "address": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+                "chainId": 1,
+                "symbol": "USDC",
+                "decimals": "6"
+              },
+              "sqrtRatioX96": "79265635821860844079763674924",
+              "liquidity": "18538049997853181",
+              "tickCurrent": "9",
+              "fee": "7",
+              "tickSpacing": "1",
+              "hooks": "0x0000000000000000000000000000000000000000",
+              "amountOut": "939444005"
+            }
+          ],
+          [
+            {
+              "type": "v3-pool",
+              "address": "0xE0554a476A092703abdB3Ef35c80e0D76d32939F",
+              "tokenIn": {
+                "address": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+                "chainId": 1,
+                "symbol": "WETH",
+                "decimals": "18"
+              },
+              "tokenOut": {
+                "address": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+                "chainId": 1,
+                "symbol": "USDC",
+                "decimals": "6"
+              },
+              "sqrtRatioX96": "1827747577892548088463218762697945",
+              "liquidity": "893023950842570632",
+              "tickCurrent": "200935",
+              "fee": "100",
+              "amountIn": "500000000000000000",
+              "amountOut": "939383152"
+            }
+          ]
+        ],
+        "input": {
+          "amount": "1000000000000000000",
+          "token": "0x0000000000000000000000000000000000000000",
+          "maximumAmount": "1000000000000000000"
+        },
+        "output": {
+          "amount": "1878827157",
+          "token": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+          "recipient": "0x0000000000000000000000000000000000000001",
+          "minimumAmount": "1869433021"
+        },
+        "slippage": 0.5,
+        "priceImpact": 0.02,
+        "priceDifference": 0.02,
+        "gasFee": "21506809563870",
+        "gasFeeUSD": "0.032058887010301566",
+        "gasFeeQuote": "32058",
+        "gasUseEstimate": "403719",
+        "routeString": "[mixed] 50.00% = [0.01%] 0xc7bBeC68d12a0d1830360F8Ec58fA599bA1b0e9b -> [0.0007%] [1] [0x0000000000000000000000000000000000000000] 0x0fb0e40cec3bb23e13abc585958a93c796fbea56955e19a23727a716a0423239, [v3] 50.00% = [0.01%] 0xE0554a476A092703abdB3Ef35c80e0D76d32939F",
+        "blockNumber": "25766599",
+        "quoteId": "85cf39b0-c3cb-43a3-bb41-ff81f52eba65",
+        "maxFeePerGas": "53271730",
+        "maxPriorityFeePerGas": "8878621",
+        "txFailureReasons": [],
+        "gasEstimates": [
+          {
+            "type": "eip1559",
+            "strategy": {
+              "limitInflationFactor": 1.15,
+              "priceInflationFactor": 1,
+              "percentileThresholdFor1559Fee": 25,
+              "minPriorityFeeGwei": 1,
+              "maxPriorityFeeGwei": 1.8,
+              "baseFeeMultiplier": 1.05,
+              "baseFeeHistoryWindow": 100,
+              "minPriorityFeeRatioOfBaseFee": 0.2,
+              "thresholdToInflateLastBlockBaseFee": 0
+            },
+            "gasLimit": "464276",
+            "gasFee": "24732785717480",
+            "maxPriorityFeePerGas": "8878621",
+            "maxFeePerGas": "53271730"
+          }
+        ],
+        "aggregatedOutputs": [
+          {
+            "amount": "1878827157",
+            "token": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+            "recipient": "0x0000000000000000000000000000000000000001",
+            "bps": 10000,
+            "minAmount": "1869433021"
+          }
+        ]
+      }
+    },
+    "execution": {
+      "available": true,
+      "reason": null,
+      "mode": "trading_api_live"
+    }
+  },
+  "deepLink": "https://app.uniswap.org/swap?chain=ethereum&inputCurrency=0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE&outputCurrency=0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48&value=1&field=INPUT"
+}

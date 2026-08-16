@@ -1,0 +1,20 @@
+{
+  "source": "tools.defiagent.llm.christmas/gas/price",
+  "data": {
+    "action": "get_gas_price",
+    "chain": {
+      "key": "ethereum",
+      "chainId": 1
+    },
+    "speed": "standard",
+    "source": "etherscan_v2_gasoracle",
+    "safe_gwei": 0.044393109,
+    "propose_gwei": 0.044543109,
+    "fast_gwei": 0.045393109,
+    "suggest_base_fee_gwei": 0.044393109,
+    "selected_gwei": 0.044543109,
+    "selected_wei": 44543109,
+    "last_block": "25766599",
+    "note": "Gas prices from Etherscan API V2 gasoracle. Units are gwei unless noted."
+  }
+}
