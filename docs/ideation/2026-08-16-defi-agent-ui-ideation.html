@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Ideation: DeFi Agent UI</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #f4f6f8;
+      --ink: #0f172a;
+      --muted: #475569;
+      --line: #d8dee6;
+      --card: #ffffff;
+      --accent: #1d4ed8;
+      --accent-2: #6d28d9;
+      --good: #047857;
+      --warn: #b45309;
+      --chip: #eef2ff;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "IBM Plex Sans", "Noto Sans SC", system-ui, sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(900px 420px at 10% -10%, rgba(29, 78, 216, 0.08), transparent 60%),
+        radial-gradient(700px 380px at 90% 0%, rgba(109, 40, 217, 0.06), transparent 55%),
+        var(--bg);
+      line-height: 1.55;
+    }
+    .wrap { max-width: 920px; margin: 0 auto; padding: 40px 24px 80px; }
+    header.doc-meta {
+      border-bottom: 1px solid var(--line);
+      padding-bottom: 20px;
+      margin-bottom: 28px;
+    }
+    header.doc-meta h1 {
+      margin: 0 0 12px;
+      font-size: 1.85rem;
+      letter-spacing: -0.02em;
+      line-height: 1.2;
+    }
+    .meta-grid {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 4px 14px;
+      font-size: 0.92rem;
+      color: var(--muted);
+    }
+    .meta-grid strong { color: var(--ink); font-weight: 600; }
+    nav.toc {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 14px 16px;
+      margin: 0 0 28px;
+      font-size: 0.92rem;
+    }
+    nav.toc a { color: var(--accent); text-decoration: none; }
+    nav.toc a:hover { text-decoration: underline; }
+    nav.toc ol { margin: 8px 0 0; padding-left: 1.25rem; }
+    h2 {
+      font-size: 1.2rem;
+      margin: 36px 0 12px;
+      letter-spacing: -0.01em;
+      border-bottom: 1px solid var(--line);
+      padding-bottom: 6px;
+    }
+    h3 { font-size: 1.05rem; margin: 0 0 8px; }
+    p, li { color: var(--ink); }
+    .muted { color: var(--muted); }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 18px 18px 16px;
+      margin: 16px 0 22px;
+      box-shadow: 0 8px 24px rgba(15, 23, 42, 0.04);
+    }
+    .badge-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 12px; }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 4px 9px;
+      border-radius: 999px;
+      background: var(--chip);
+      color: #312e81;
+    }
+    .badge.axis { background: #ecfdf5; color: #065f46; }
+    .badge.cx { background: #fff7ed; color: #9a3412; }
+    .badge.conf { background: #eff6ff; color: #1e40af; }
+    .field { margin: 10px 0; font-size: 0.95rem; }
+    .field b { display: inline-block; min-width: 5.5rem; color: var(--muted); font-weight: 600; }
+    .basis {
+      font-family: "IBM Plex Mono", ui-monospace, monospace;
+      font-size: 0.82rem;
+      background: #f8fafc;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 10px 12px;
+      white-space: pre-wrap;
+      color: #334155;
+    }
+    .viz {
+      margin: 14px 0 6px;
+      border: 1px dashed #cbd5e1;
+      border-radius: 12px;
+      background: #fbfdff;
+      padding: 10px;
+      overflow-x: auto;
+    }
+    .viz svg { display: block; width: 100%; height: auto; }
+    .viz-caption { font-size: 0.8rem; color: var(--muted); margin-top: 6px; }
+    table.reject {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    table.reject th, table.reject td {
+      border-bottom: 1px solid var(--line);
+      padding: 10px 12px;
+      text-align: left;
+      vertical-align: top;
+    }
+    table.reject th { background: #f8fafc; font-weight: 600; }
+    table.reject tr:last-child td { border-bottom: none; }
+    ul.axes { margin: 8px 0 0; padding-left: 1.2rem; }
+    footer.composition-signal {
+      margin-top: 48px;
+      padding-top: 16px;
+      border-top: 1px solid var(--line);
+      font-size: 0.82rem;
+      color: var(--muted);
+    }
+    code { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 0.88em; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="doc-meta">
+      <h1>Ideation: DeFi Agent UI 改进方向</h1>
+      <div class="meta-grid">
+        <span>Date</span><strong><time datetime="2026-08-16">2026-08-16</time></strong>
+        <span>Topic</span><strong>defi-agent-ui</strong>
+        <span>Focus</span><strong>UI 太简单 / 不好看 — 视觉与交互升级建议</strong>
+        <span>Mode</span><strong>repo-grounded</strong>
+      </div>
+    </header>
+
+    <nav class="toc" aria-label="Document navigation">
+      <strong>导航</strong>
+      · <a href="#grounding">Grounding</a>
+      · <a href="#axes">Axes</a>
+      · <a href="#ideas">Ranked Ideas</a>
+      · <a href="#rejection">Rejection</a>
+      <ol>
+        <li><a href="#idea-1">启用休眠侧栏（Ship the dormant rail）</a></li>
+        <li><a href="#idea-2">工具活动回执条（Tool activity rail）</a></li>
+        <li><a href="#idea-3">答案结果卡片（Result cards）</a></li>
+        <li><a href="#idea-4">品牌脊线 + 真玻璃感</a></li>
+        <li><a href="#idea-5">简报台，不是聊天气泡</a></li>
+        <li><a href="#idea-6">全幅操作台 + 可折叠上下文</a></li>
+        <li><a href="#idea-7">一键发动 + 预装芯片</a></li>
+      </ol>
+    </nav>
+
+    <h2 id="grounding">Grounding Context</h2>
+    <p><strong>Codebase Context.</strong> 产品是 Next 14 + Tailwind 的 DeFi Agent：左侧项目卡 + 右侧 <code>useChat</code> 对话。现行 UI 在 <code>app/page.tsx</code> 内联完成，浅色 Inter / slate / blue，<code>.glass-panel</code> 实为不透明白卡片。</p>
+    <ul>
+      <li><strong>模式：</strong> sticky header + <code>max-w-[1200px]</code> 双栏；移动端侧栏叠在聊天上方。</li>
+      <li><strong>痛点：</strong><code>components/RepoPanel.tsx</code>（暗色、LIVE_TOOLS、stars/forks）从未被 import；页面自维护另一份 <code>REPOS</code>，与 <code>lib/repos.ts</code> 漂移（如 polymarket-sdk vs polymarket-py）。</li>
+      <li><strong>工具不可见：</strong><code>/api/chat</code> 在服务端完成 tool 循环后只流式输出清洗后的 Markdown；客户端只有通用 spinner。</li>
+      <li><strong>品牌未落地：</strong><code>icon.svg</code> 的蓝→紫渐变几乎只出现在 favicon；UI 满屏 flat <code>blue-600</code>。</li>
+      <li><strong>外部参照：</strong>Cursor/Manus 活动面板、Vercel AI SDK generative UI、Phantom/Uniswap 单强调色、Perplexity/Messari 引用、Bankr 终端、Aave Glass/Pro。</li>
+      <li><strong>Past learnings：</strong>仓库无 <code>solutions/</code> / <code>CONCEPTS.md</code>。</li>
+    </ul>
+
+    <h2 id="axes">Topic Axes</h2>
+    <ul class="axes">
+      <li><strong>visual-identity</strong> — 字体、色板、氛围、品牌</li>
+      <li><strong>chat-surface</strong> — 消息、空态、输入框、Markdown</li>
+      <li><strong>sidebar-rail</strong> — 仓库、工具、实时上下文</li>
+      <li><strong>tool-transparency</strong> — 工具过程 / 结果呈现</li>
+      <li><strong>layout-hierarchy</strong> — 构图、密度、响应式结构</li>
+    </ul>
+
+    <h2 id="ideas">Ranked Ideas</h2>
+    <p class="muted">按「能否改变下一步决策」排序。建议优先做 #1+#4（立刻变好看且复用现成代码），再上 #2+#3（让 Live Tools 名副其实）。</p>
+
+    <article class="card" id="idea-1">
+      <h3>1. 启用休眠侧栏（Ship the dormant rail）</h3>
+      <div class="badge-row">
+        <span class="badge">ID 1</span>
+        <span class="badge axis">sidebar-rail</span>
+        <span class="badge conf">Confidence 92%</span>
+        <span class="badge cx">Complexity Low</span>
+      </div>
+      <p class="field"><b>Description:</b> 删除 <code>page.tsx</code> 内联的简化侧栏，挂载（或拆分复用）已存在的 <code>RepoPanel</code> 能力：LIVE_TOOLS 网格、点击建议提示词、经 <code>/api/repos</code> 的 stars/forks。仓库元数据统一走 <code>lib/repos.ts</code>，消灭两套列表漂移。视觉对齐到现行浅色壳，而不是直接套暗色 orphan 主题。</p>
+      <p class="field"><b>Axis:</b> sidebar-rail</p>
+      <div class="field"><b>Basis:</b>
+        <div class="basis">direct: RepoPanel.tsx 零引用但含 LIVE_TOOLS + /api/repos；page.tsx 侧栏仅 repos、无 stats；lib/repos.ts 与 page REPOS 列表不一致
+external: Aave Pro / Bankr — 侧栏作为能力地图而非静态链接墙</div>
+      </div>
+      <p class="field"><b>Rationale:</b> Header 写着 “Live Tools”，用户却只看到 GitHub 简介卡——更好的侧栏已经写好却没接上。这是投入产出比最高的「变好看 + 变真」。</p>
+      <p class="field"><b>Downsides:</b> 需要统一主题 token（RepoPanel 的 <code>.glass</code> 未定义）；合并 demoPrompt / 图标字段时要一次数据模型整理。</p>
+      <div class="viz" aria-hidden="true">
+        <svg viewBox="0 0 720 160" xmlns="http://www.w3.org/2000/svg" role="img">
+          <rect x="8" y="20" width="220" height="120" rx="10" fill="#fee2e2" stroke="#f87171"/>
+          <text x="118" y="55" text-anchor="middle" font-size="13" fill="#7f1d1d" font-family="IBM Plex Sans,sans-serif">page.tsx 内联侧栏</text>
+          <text x="118" y="78" text-anchor="middle" font-size="11" fill="#991b1b" font-family="IBM Plex Sans,sans-serif">repos only · no stats</text>
+          <text x="118" y="100" text-anchor="middle" font-size="11" fill="#991b1b" font-family="IBM Plex Sans,sans-serif">硬编码 REPOS</text>
+          <path d="M250 80 H310" stroke="#64748b" stroke-width="2" marker-end="url(#arr)"/>
+          <defs><marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6" fill="#64748b"/></marker></defs>
+          <rect x="320" y="20" width="220" height="120" rx="10" fill="#ecfdf5" stroke="#34d399"/>
+          <text x="430" y="55" text-anchor="middle" font-size="13" fill="#064e3b" font-family="IBM Plex Sans,sans-serif">RepoPanel（未挂载）</text>
+          <text x="430" y="78" text-anchor="middle" font-size="11" fill="#065f46" font-family="IBM Plex Sans,sans-serif">LIVE_TOOLS · stars</text>
+          <text x="430" y="100" text-anchor="middle" font-size="11" fill="#065f46" font-family="IBM Plex Sans,sans-serif">/api/repos 已就绪</text>
+          <rect x="560" y="40" width="140" height="80" rx="10" fill="#eff6ff" stroke="#60a5fa"/>
+          <text x="630" y="75" text-anchor="middle" font-size="12" fill="#1e3a8a" font-family="IBM Plex Sans,sans-serif">统一挂载</text>
+          <text x="630" y="95" text-anchor="middle" font-size="11" fill="#1e40af" font-family="IBM Plex Sans,sans-serif">+ lib/repos</text>
+        </svg>
+        <p class="viz-caption">示意：把已写好却休眠的能力接到正式壳上，而不是再设计第三套侧栏。</p>
+      </div>
+    </article>
+
+    <article class="card" id="idea-2">
+      <h3>2. 工具活动回执条（Tool activity / receipt rail）</h3>
+      <div class="badge-row">
+        <span class="badge">ID 2</span>
+        <span class="badge axis">tool-transparency</span>
+        <span class="badge conf">Confidence 88%</span>
+        <span class="badge cx">Complexity Medium</span>
+      </div>
+      <p class="field"><b>Description:</b> 在对话头或输入框上方增加细活动条：工具名、数据源（CoinGecko / DefiLlama / Etherscan）、耗时、成败。最小版可先用阶段标签（Routing → Tool → Synthesize）；完整版通过 AI SDK data stream 推送 tool 事件。把「Agent is thinking and processing tools…」换成可核对的回执。</p>
+      <p class="field"><b>Axis:</b> tool-transparency</p>
+      <div class="field"><b>Basis:</b>
+        <div class="basis">direct: page.tsx 仅有通用 spinner；route.ts 服务端 tool 结果不进入客户端流
+external: Cursor/Manus 活动面板；Perplexity 过程可见性</div>
+      </div>
+      <p class="field"><b>Rationale:</b> Live Tools 是产品差异点，却在 UI 上被抹掉。用户感觉「太简单」，往往是因为看不到真实工作，只像套壳聊天。</p>
+      <p class="field"><b>Downsides:</b> 需要改流协议或至少加阶段信号；过度暴露原始 JSON 会变吵——默认折叠。</p>
+      <div class="viz" aria-hidden="true">
+        <svg viewBox="0 0 720 130" xmlns="http://www.w3.org/2000/svg">
+          <rect x="20" y="18" width="680" height="36" rx="8" fill="#fff7ed" stroke="#fdba74"/>
+          <text x="36" y="41" font-size="12" fill="#9a3412" font-family="IBM Plex Mono,monospace">1 get_token_price · CoinGecko · 420ms ✓</text>
+          <rect x="20" y="64" width="680" height="36" rx="8" fill="#ecfdf5" stroke="#6ee7b7"/>
+          <text x="36" y="87" font-size="12" fill="#065f46" font-family="IBM Plex Mono,monospace">2 get_defi_tvl · DefiLlama · 610ms ✓ → streaming answer…</text>
+        </svg>
+        <p class="viz-caption">示意：等待时间变成可审计的工具回执，而不是模糊转圈。</p>
+      </div>
+    </article>
+
+    <article class="card" id="idea-3">
+      <h3>3. 答案结果卡片（Result cards in the thread）</h3>
+      <div class="badge-row">
+        <span class="badge">ID 3</span>
+        <span class="badge axis">tool-transparency</span>
+        <span class="badge conf">Confidence 84%</span>
+        <span class="badge cx">Complexity Medium</span>
+      </div>
+      <p class="field"><b>Description:</b> 把价格 / TVL / gas / repo stats 从散文与灰表升级为结构化卡片（数字、24h 变化、来源芯片）。路径 A：扩展 <code>Markdown.tsx</code> 对 GFM 表/链接做启发式包装（零协议改动）；路径 B：流式 typed parts（Vercel generative UI）。可与 #2 的来源芯片打通。</p>
+      <p class="field"><b>Axis:</b> tool-transparency</p>
+      <div class="field"><b>Basis:</b>
+        <div class="basis">direct: 助手回复仅 Markdown 渲染 m.content；无 tool widget
+external: Vercel AI SDK generative UI；Messari Copilot 表/图/引用</div>
+      </div>
+      <p class="field"><b>Rationale:</b> DeFi 答案是证据型数据。气泡里的 Markdown 墙让产品看起来像通用 LLM，而不是分析台。</p>
+      <p class="field"><b>Downsides:</b> 启发式可能误伤普通表；typed parts 需要消息模型升级。</p>
+    </article>
+
+    <article class="card" id="idea-4">
+      <h3>4. 品牌脊线 + 真玻璃感（Brand spine + real glass）</h3>
+      <div class="badge-row">
+        <span class="badge">ID 4</span>
+        <span class="badge axis">visual-identity</span>
+        <span class="badge conf">Confidence 90%</span>
+        <span class="badge cx">Complexity Low</span>
+      </div>
+      <p class="field"><b>Description:</b> 把 <code>icon.svg</code> 的 <code>#2563EB → #7C3AED</code> 提升为 <code>--accent-start/end</code>，只用于品牌标、发送键、焦点环、活动态——其余保持克制中性面（Phantom/Uniswap 式单强调色）。重写 <code>.glass-panel</code>：半透明 + blur + 轻微渐变描边，让 body 径向背景真正透出来；聊天列用更强阴影成为主舞台。换掉默认 Inter，选有性格的显示/正文字体对。</p>
+      <p class="field"><b>Axis:</b> visual-identity</p>
+      <div class="field"><b>Basis:</b>
+        <div class="basis">direct: icon.svg 定义 defiGrad；globals.css glass-panel 为不透明白；UI 大量 flat blue-600
+external: Phantom / Uniswap 单强调色；Aave Glass 深度材料</div>
+      </div>
+      <p class="field"><b>Rationale:</b> 「不好看」很大程度是身份缺失：favicon 有品牌，页面像通用开发门户。这是纯视觉、低风险的立即提升。</p>
+      <p class="field"><b>Downsides:</b> 过度渐变会落入 AI 紫蓝套路——强调色必须克制；字体加载需注意性能。</p>
+      <div class="viz" aria-hidden="true">
+        <svg viewBox="0 0 720 140" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stop-color="#2563EB"/><stop offset="100%" stop-color="#7C3AED"/>
+            </linearGradient>
+          </defs>
+          <rect x="24" y="24" width="672" height="92" rx="14" fill="#ffffff" fill-opacity="0.72" stroke="url(#g)" stroke-width="1.5"/>
+          <rect x="44" y="44" width="36" height="36" rx="10" fill="url(#g)"/>
+          <text x="96" y="58" font-size="14" font-weight="700" fill="#0f172a" font-family="IBM Plex Sans,sans-serif">DeFi Agent</text>
+          <text x="96" y="78" font-size="11" fill="#64748b" font-family="IBM Plex Sans,sans-serif">一个渐变脊线贯穿标、CTA、焦点 — 不是满屏染色</text>
+          <rect x="560" y="48" width="112" height="36" rx="10" fill="url(#g)"/>
+          <text x="616" y="71" text-anchor="middle" font-size="12" fill="#fff" font-family="IBM Plex Sans,sans-serif">Send</text>
+        </svg>
+        <p class="viz-caption">示意：品牌资产进入系统 token，材料有深度，强调色只出现在行动点。</p>
+      </div>
+    </article>
+
+    <article class="card" id="idea-5">
+      <h3>5. 简报台，不是聊天气泡（Briefing desk）</h3>
+      <div class="badge-row">
+        <span class="badge">ID 5</span>
+        <span class="badge axis">chat-surface</span>
+        <span class="badge conf">Confidence 78%</span>
+        <span class="badge cx">Complexity Medium</span>
+      </div>
+      <p class="field"><b>Description:</b> 去掉左右气泡与 YOU/Bot 圆形头像戏法。用户提问为细查询条；助手回复为全宽「研究简报」面板（标题结论 + 展台式表格/代码/引用）。信息架构不变，但视觉从「玩具聊天」切到「分析台」。</p>
+      <p class="field"><b>Axis:</b> chat-surface</p>
+      <div class="field"><b>Basis:</b>
+        <div class="basis">direct: page.tsx 气泡 max-w-[85%] + 角色色壳；助手已是密集 GFM
+external: Messari / Perplexity 文档式答案；新闻编辑室脚注节奏</div>
+      </div>
+      <p class="field"><b>Rationale:</b> 气泡版式与 DeFi 表格/计划天然冲突；「太简单」常来自 iMessage 联想，而不是内容不足。</p>
+      <p class="field"><b>Downsides:</b> 可能削弱熟悉的聊天心智；需要更强的排版层级以免变成白墙。</p>
+    </article>
+
+    <article class="card" id="idea-6">
+      <h3>6. 全幅操作台 + 可折叠上下文（Operator console）</h3>
+      <div class="badge-row">
+        <span class="badge">ID 6</span>
+        <span class="badge axis">layout-hierarchy</span>
+        <span class="badge conf">Confidence 80%</span>
+        <span class="badge cx">Complexity Medium–High</span>
+      </div>
+      <p class="field"><b>Description:</b> 取消居中 <code>max-w-[1200px]</code> 双白卡片模板。顶栏变薄状态条；桌面默认聊天占 ≥70% 宽，侧栏收成 48px 图标轨、展开为抽屉；移动端侧栏改为 bottom sheet，默认聊天优先。去掉硬编码 <code>calc(100vh-65px)</code>，用真实 header 高度。</p>
+      <p class="field"><b>Axis:</b> layout-hierarchy</p>
+      <div class="field"><b>Basis:</b>
+        <div class="basis">direct: header/main 均 max-w-[1200px]；lg:w-[320px] 固定吃掉聊天宽度；移动端 flex-col 侧栏在上
+external: Bankr / Bloomberg 终端构图；Cursor 可折叠侧工件</div>
+      </div>
+      <p class="field"><b>Rationale:</b> 「居中双卡片」是模板感的主因。操作台构图让后续结果卡、活动条有空间生长。</p>
+      <p class="field"><b>Downsides:</b> 布局改动面大；全幅不等于堆仪表盘——仍要避免首屏杂讯。</p>
+      <div class="viz" aria-hidden="true">
+        <svg viewBox="0 0 720 160" xmlns="http://www.w3.org/2000/svg">
+          <rect x="16" y="16" width="688" height="24" rx="4" fill="#e2e8f0"/>
+          <text x="28" y="33" font-size="10" fill="#475569" font-family="IBM Plex Sans,sans-serif">status · model · live</text>
+          <rect x="16" y="48" width="48" height="96" rx="6" fill="#dbeafe"/>
+          <text x="40" y="100" text-anchor="middle" font-size="10" fill="#1e40af" font-family="IBM Plex Sans,sans-serif" transform="rotate(-90 40 100)">rail</text>
+          <rect x="76" y="48" width="628" height="96" rx="6" fill="#ffffff" stroke="#94a3b8"/>
+          <text x="390" y="100" text-anchor="middle" font-size="13" fill="#0f172a" font-family="IBM Plex Sans,sans-serif">chat / briefing owns the desk</text>
+        </svg>
+        <p class="viz-caption">示意：聊天是主台面；上下文是可展开的检查器，而不是对等的第二张卡片。</p>
+      </div>
+    </article>
+
+    <article class="card" id="idea-7">
+      <h3>7. 一键发动 + 预装芯片（One-tap invoke + staging chips）</h3>
+      <div class="badge-row">
+        <span class="badge">ID 7</span>
+        <span class="badge axis">chat-surface</span>
+        <span class="badge conf">Confidence 86%</span>
+        <span class="badge cx">Complexity Low</span>
+      </div>
+      <p class="field"><b>Description:</b> 侧栏 / 空态点击不要只 <code>setInput</code> 后干等。默认直接提交 demoPrompt；或在输入框上方放「已武装：get_token_price」芯片（可关闭），避免整段提示词覆盖用户草稿。空态去掉与侧栏重复的三张提示卡，改成引导去点左侧工具/项目。</p>
+      <p class="field"><b>Axis:</b> chat-surface</p>
+      <div class="field"><b>Basis:</b>
+        <div class="basis">direct: page.tsx 点击仅 setInput；空态三按钮与 repo demoPrompt 文案三重维护
+reasoned: 「点了没反应」是移动端与新用户最容易感到「半成品」的摩擦</div>
+      </div>
+      <p class="field"><b>Rationale:</b> 发现路径若半途而废，再漂亮的视觉也救不了「不好用→不好看」的整体印象。</p>
+      <p class="field"><b>Downsides:</b> 自动发送可能让用户来不及改参数——长按编辑或芯片确认可缓解。</p>
+    </article>
+
+    <h2 id="rejection">Rejection Summary</h2>
+    <table class="reject">
+      <thead>
+        <tr><th>#</th><th>Idea</th><th>Reason Rejected</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>1</td><td>Command palette 完全取代侧栏</td><td>basis weak；与 #1/#7 重叠，且仓库无既有命令面板信号</td></tr>
+        <tr><td>2</td><td>Orphan Dark 全站暗色品牌化</td><td>主观且与克制浅色方向冲突；RepoPanel 的 <code>.glass</code> 未定义，不适合整站套用</td></tr>
+        <tr><td>3</td><td>Aave-Pro 能力域地图（独立大改 IA）</td><td>aspirational；侧栏「GitHub Projects」本意明确，能力地图可并入 #1 增量完成</td></tr>
+        <tr><td>4</td><td>Governance Desk 提案线程</td><td>basis refuted — 仓库无治理/提案模型</td></tr>
+        <tr><td>5</td><td>Radio channel-strip 作曲器（独立方案）</td><td>weak；并入 #7 预装芯片更干净</td></tr>
+        <tr><td>6</td><td>Empty-state live tape</td><td>弱于 #1（挂载 /api/repos）；单独做易成装饰条</td></tr>
+        <tr><td>7</td><td>Source citation chips（独立）</td><td>并入 #2/#3 的来源芯片，避免碎片化</td></tr>
+        <tr><td>8</td><td>仅「去掉嵌套 glass」</td><td>并入 #4 材料系统</td></tr>
+        <tr><td>9</td><td>仅 Icon rail</td><td>并入 #6 操作台布局</td></tr>
+        <tr><td>10</td><td>完整 Tool Trace 流（与活动条重复）</td><td>与 #2 同轴；保留 #2 作为更可落地的表述</td></tr>
+        <tr><td>11</td><td>Split panels 积累 tool payload</td><td>复杂度高、与 #2+#6 重叠；适合 brainstorm 变体而非并列方向</td></tr>
+        <tr><td>12</td><td>Mobile context sheet（独立）</td><td>并入 #6 的移动端 bottom sheet</td></tr>
+      </tbody>
+    </table>
+
+    <footer class="composition-signal">
+      Composed 2026-08-16T08:45Z by ce-ideate from user prompt「这个项目的 UI 感觉太简单了，不好看，你有什么改进建议吗」 · run 3080799e · ~40 raw candidates → 7 survivors
+    </footer>
+  </div>
+</body>
+</html>
