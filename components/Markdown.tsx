@@ -4,11 +4,6 @@ import type { ReactNode } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
-function isMetricishTable(children: ReactNode): boolean {
-  const text = collectText(children).toLowerCase();
-  return /\$|usd|tvl|%|gwei|price|eth|btc/.test(text);
-}
-
 function collectText(node: ReactNode): string {
   if (node == null || typeof node === 'boolean') return '';
   if (typeof node === 'string' || typeof node === 'number') return String(node);
@@ -30,7 +25,7 @@ function citationLabel(href?: string): string | null {
     if (host.includes('uniswap.org')) return 'Uniswap';
     if (host.includes('hyperliquid')) return 'Hyperliquid';
     if (host.includes('polymarket')) return 'Polymarket';
-    return host;
+    return null;
   } catch {
     return null;
   }
@@ -52,10 +47,12 @@ export function Markdown({ children }: { children: string }) {
           li: ({ children }) => <li className="md-li">{children}</li>,
           a: ({ href, children }) => {
             const chip = citationLabel(href);
+            const label = collectText(children).trim();
+            const redundant = chip && label.toLowerCase().includes(chip.toLowerCase());
             return (
-              <a href={href} target="_blank" rel="noreferrer" className={chip ? 'md-cite' : 'md-a'}>
-                {chip ? <span className="md-cite-chip">{chip}</span> : null}
+              <a href={href} target="_blank" rel="noreferrer" className="md-a">
                 <span>{children}</span>
+                {chip && !redundant ? <span className="md-cite-chip">{chip}</span> : null}
               </a>
             );
           },
@@ -76,7 +73,7 @@ export function Markdown({ children }: { children: string }) {
           },
           pre: ({ children }) => <pre className="md-pre">{children}</pre>,
           table: ({ children }) => (
-            <div className={`md-table-wrap ${isMetricishTable(children) ? 'md-table-metric' : ''}`}>
+            <div className="md-table-wrap">
               <table className="md-table">{children}</table>
             </div>
           ),

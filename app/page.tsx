@@ -430,26 +430,24 @@ function AgentConsole({ boot }: { boot: SessionSnapshot | null }) {
                       if (m.role === 'user') {
                         const active = index === lastUserIndex;
                         const receipt = receiptFor(m.id, active);
-                        const showLiveCards = active && isLoading;
+                        // Cards live in Finding once the assistant turn exists — avoid duplicate stacks.
+                        const findingStarted = messages.slice(index + 1).some((x) => x.role === 'assistant');
+                        const showLiveCards = active && isLoading && !findingStarted;
                         return (
-                          <div key={m.id}>
-                            <div className="briefing-query">
-                              <div className="mb-1 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Query</div>
-                              <div className="whitespace-pre-wrap rounded-xl border border-slate-200/90 bg-slate-50/90 px-4 py-3 text-[13.5px] leading-relaxed text-slate-800">
-                                {m.content}
-                              </div>
+                          <div key={m.id} className="space-y-3">
+                            <div>
+                              <div className="mb-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Query</div>
+                              <div className="query-panel">{m.content}</div>
                             </div>
                             {(receipt.tools.length > 0 || receipt.phase || (active && isLoading)) && (
-                              <div className="mt-4">
-                                <ToolActivityRail
-                                  phase={receipt.phase}
-                                  tools={receipt.tools}
-                                  isLoading={active && isLoading}
-                                  showCards={showLiveCards}
-                                  retryingId={retryingId}
-                                  onRetry={(tool) => void retryTool(m.id, tool)}
-                                />
-                              </div>
+                              <ToolActivityRail
+                                phase={receipt.phase}
+                                tools={receipt.tools}
+                                isLoading={active && isLoading}
+                                showCards={showLiveCards}
+                                retryingId={retryingId}
+                                onRetry={(tool) => void retryTool(m.id, tool)}
+                              />
                             )}
                           </div>
                         );
@@ -463,27 +461,26 @@ function AgentConsole({ boot }: { boot: SessionSnapshot | null }) {
                       );
 
                       return (
-                        <div key={m.id} className="briefing-finding">
+                        <div key={m.id}>
                           <div className="mb-2 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
                             <span className="brand-gradient inline-flex h-5 w-5 items-center justify-center rounded-md">
                               <Bot className="h-3 w-3 text-white" />
                             </span>
                             Finding
                           </div>
-                          <div className="rounded-2xl border border-slate-200/90 bg-white/90 px-5 py-4 text-[13.5px] leading-relaxed text-slate-700 shadow-[0_10px_30px_rgba(15,23,42,0.04)]">
-                            {highlightCards.length > 0 && (
-                              <div className="mb-4 space-y-2 border-b border-slate-100 pb-4">
-                                <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">
-                                  Key tool results
-                                </div>
+                          <div className="finding-panel px-5 py-4">
+                            {highlightCards.length > 0 ? (
+                              <div className="finding-tools">
                                 {highlightCards.map((t) => (
                                   <div key={t.id || t.name}>
-                                    <div className="mb-1 text-[11px] font-semibold text-slate-500">{t.label || t.name}</div>
-                                    {t.card && <ToolResultCard card={t.card} />}
+                                    <div className="mb-1.5 text-[10px] font-bold uppercase tracking-[0.1em] text-slate-400">
+                                      {t.label || t.name}
+                                    </div>
+                                    {t.card ? <ToolResultCard card={t.card} flush /> : null}
                                   </div>
                                 ))}
                               </div>
-                            )}
+                            ) : null}
                             <Markdown>{m.content || ''}</Markdown>
                           </div>
                         </div>

@@ -21,22 +21,30 @@ function changeClass(n?: number) {
 function Metric({ label, value }: { label: string; value?: string }) {
   if (!value) return null;
   return (
-    <div className="rounded-lg bg-white/70 px-2.5 py-2">
-      <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">{label}</div>
-      <div className="mt-0.5 break-all text-sm font-semibold tabular-nums text-slate-900">{value}</div>
+    <div className="result-metric">
+      <dt>{label}</dt>
+      <dd>{value}</dd>
     </div>
   );
 }
 
-export function ToolResultCard({ card }: { card: ToolCard }) {
+type Props = {
+  card: ToolCard;
+  /** Drop outer border when nested inside Finding. */
+  flush?: boolean;
+};
+
+export function ToolResultCard({ card, flush = false }: Props) {
+  const shell = flush ? 'result-card result-card--flush' : 'result-card';
+
   if (card.kind === 'price') {
     return (
-      <div className="result-card grid gap-2 sm:grid-cols-2">
+      <div className={`${shell} result-card--grid`}>
         {card.items.map((item) => (
-          <div key={item.id} className="rounded-lg bg-white/70 px-3 py-2">
-            <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">{item.id}</div>
-            <div className="mt-0.5 text-lg font-bold tabular-nums text-slate-900">{formatUsd(item.usd)}</div>
-            <div className={`text-[11px] font-medium tabular-nums ${changeClass(item.change24h)}`}>
+          <div key={item.id} className="result-metric">
+            <dt>{item.id}</dt>
+            <dd className="result-metric__hero">{formatUsd(item.usd)}</dd>
+            <div className={`result-metric__meta ${changeClass(item.change24h)}`}>
               {item.change24h == null ? '—' : `${item.change24h > 0 ? '+' : ''}${item.change24h.toFixed(2)}% 24h`}
             </div>
           </div>
@@ -47,41 +55,41 @@ export function ToolResultCard({ card }: { card: ToolCard }) {
 
   if (card.kind === 'tvl') {
     return (
-      <div className="result-card">
-        <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">{card.title}</div>
-        <div className="mt-0.5 text-xl font-bold tabular-nums text-slate-900">{formatUsd(card.tvlUsd)}</div>
-        {card.chains && card.chains.length > 0 && (
-          <div className="mt-3 grid gap-1.5 sm:grid-cols-2">
+      <div className={shell}>
+        <div className="result-card__kicker">{card.title}</div>
+        <div className="result-card__hero">{formatUsd(card.tvlUsd)}</div>
+        {card.chains && card.chains.length > 0 ? (
+          <div className="result-card__list">
             {card.chains.map((c) => (
-              <div key={c.name} className="flex items-center justify-between rounded-md bg-white/70 px-2.5 py-1.5 text-[11px]">
-                <span className="font-medium text-slate-700">{c.name}</span>
+              <div key={c.name} className="result-card__row">
+                <span>{c.name}</span>
                 <span className="tabular-nums text-slate-500">{formatUsd(c.tvl)}</span>
               </div>
             ))}
           </div>
-        )}
+        ) : null}
       </div>
     );
   }
 
   if (card.kind === 'repo') {
     return (
-      <div className="result-card">
+      <div className={shell}>
         <div className="flex items-start justify-between gap-3">
-          <div>
-            <div className="text-sm font-bold text-slate-900">{card.title}</div>
-            {card.description && <p className="mt-1 text-[11px] leading-relaxed text-slate-500">{card.description}</p>}
+          <div className="min-w-0">
+            <div className="result-card__title">{card.title}</div>
+            {card.description ? <p className="result-card__note">{card.description}</p> : null}
           </div>
-          {card.url && (
-            <a href={card.url} target="_blank" rel="noreferrer" className="shrink-0 text-blue-600 hover:text-violet-600">
+          {card.url ? (
+            <a href={card.url} target="_blank" rel="noreferrer" className="result-card__icon-link" aria-label="Open repository">
               <ExternalLink className="h-4 w-4" />
             </a>
-          )}
+          ) : null}
         </div>
-        <div className="mt-3 flex flex-wrap gap-3 text-[11px] text-slate-500">
+        <div className="result-card__meta-row">
           <span className="inline-flex items-center gap-1"><Star className="h-3.5 w-3.5" />{card.stars ?? '—'}</span>
           <span className="inline-flex items-center gap-1"><GitFork className="h-3.5 w-3.5" />{card.forks ?? '—'}</span>
-          {card.language && <span className="rounded bg-slate-100 px-1.5 py-0.5 font-medium">{card.language}</span>}
+          {card.language ? <span className="result-card__tag">{card.language}</span> : null}
         </div>
       </div>
     );
@@ -89,11 +97,11 @@ export function ToolResultCard({ card }: { card: ToolCard }) {
 
   if (card.kind === 'gas') {
     return (
-      <div className="result-card grid grid-cols-3 gap-2">
+      <div className={`${shell} result-card--cols-3`}>
         {card.rows.map((row) => (
-          <div key={row.label} className="rounded-lg bg-white/70 px-2.5 py-2 text-center">
-            <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">{row.label}</div>
-            <div className="mt-0.5 text-sm font-bold tabular-nums text-slate-900">{row.value}</div>
+          <div key={row.label} className="result-metric result-metric--center">
+            <dt>{row.label}</dt>
+            <dd>{row.value}</dd>
           </div>
         ))}
       </div>
@@ -102,34 +110,29 @@ export function ToolResultCard({ card }: { card: ToolCard }) {
 
   if (card.kind === 'swap') {
     return (
-      <div className="result-card space-y-3">
-        <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">{card.title}</div>
-        <div className="grid gap-2 sm:grid-cols-2">
+      <div className={shell}>
+        <div className="result-card__kicker">{card.title}</div>
+        <div className="result-card--grid">
           <Metric label="Sell" value={card.tokenIn && card.amountIn ? `${card.amountIn} ${card.tokenIn}` : card.tokenIn} />
           <Metric label="Buy" value={card.tokenOut && card.amountOut ? `${card.amountOut} ${card.tokenOut}` : card.tokenOut} />
           <Metric label="Price" value={card.price} />
           <Metric label="Chain" value={card.chain} />
         </div>
-        {card.note && <p className="text-[11px] leading-relaxed text-slate-500">{card.note}</p>}
-        {card.deepLink && (
-          <a
-            href={card.deepLink}
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex items-center gap-1.5 rounded-lg bg-pink-500/10 px-3 py-2 text-xs font-semibold text-pink-700 transition hover:bg-pink-500/15"
-          >
+        {card.note ? <p className="result-card__note">{card.note}</p> : null}
+        {card.deepLink ? (
+          <a href={card.deepLink} target="_blank" rel="noreferrer" className="result-card__cta">
             Open in Uniswap <ExternalLink className="h-3.5 w-3.5" />
           </a>
-        )}
+        ) : null}
       </div>
     );
   }
 
   if (card.kind === 'perp') {
     return (
-      <div className="result-card space-y-3">
-        <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">{card.title}</div>
-        <div className="grid gap-2 sm:grid-cols-2">
+      <div className={shell}>
+        <div className="result-card__kicker">{card.title}</div>
+        <div className="result-card--grid">
           <Metric label="Market" value={card.coin} />
           <Metric label="Side" value={card.side} />
           <Metric label="Size" value={card.sizeUsd} />
@@ -143,62 +146,68 @@ export function ToolResultCard({ card }: { card: ToolCard }) {
 
   if (card.kind === 'markets') {
     return (
-      <div className="result-card space-y-2">
-        <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">{card.title}</div>
-        {card.items.map((item, i) => (
-          <div key={`${item.name}-${i}`} className="flex items-start justify-between gap-3 rounded-lg bg-white/70 px-2.5 py-2">
-            <div className="min-w-0">
-              <div className="truncate text-[12px] font-semibold text-slate-800">{item.name}</div>
-              {item.detail && <div className="truncate text-[10px] text-slate-500">{item.detail}</div>}
+      <div className={shell}>
+        <div className="result-card__kicker">{card.title}</div>
+        <div className="result-card__list">
+          {card.items.map((item, i) => (
+            <div key={`${item.name}-${i}`} className="result-card__row">
+              <div className="min-w-0">
+                <div className="truncate text-[12px] font-semibold text-slate-800">{item.name}</div>
+                {item.detail ? <div className="truncate text-[10px] text-slate-500">{item.detail}</div> : null}
+              </div>
+              {item.odds ? <div className="shrink-0 text-[12px] font-bold tabular-nums text-slate-900">{item.odds}</div> : null}
             </div>
-            {item.odds && <div className="shrink-0 text-[12px] font-bold tabular-nums text-slate-900">{item.odds}</div>}
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
     );
   }
 
   if (card.kind === 'doctor') {
     return (
-      <div className="result-card space-y-2">
-        <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">{card.title}</div>
-        {card.checks.map((check) => (
-          <div key={check.label} className="flex items-start gap-2 rounded-lg bg-white/70 px-2.5 py-2 text-[12px]">
-            <span className={`mt-0.5 h-2 w-2 shrink-0 rounded-full ${check.ok ? 'bg-emerald-500' : 'bg-red-500'}`} />
-            <div className="min-w-0">
-              <div className="font-semibold text-slate-800">{check.label}</div>
-              {check.detail && <div className="text-[11px] text-slate-500">{check.detail}</div>}
+      <div className={shell}>
+        <div className="result-card__kicker">{card.title}</div>
+        <div className="result-card__list">
+          {card.checks.map((check) => (
+            <div key={check.label} className="result-card__check">
+              <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${check.ok ? 'bg-emerald-500' : 'bg-red-500'}`} />
+              <div className="min-w-0">
+                <div className="text-[12px] font-semibold text-slate-800">{check.label}</div>
+                {check.detail ? <div className="text-[11px] text-slate-500">{check.detail}</div> : null}
+              </div>
             </div>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
     );
   }
 
   if (card.kind === 'wallet') {
     return (
-      <div className="result-card space-y-2">
-        <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">{card.title}</div>
-        {card.items.map((item) => (
-          <div key={item.label} className="flex items-center justify-between gap-3 rounded-lg bg-white/70 px-2.5 py-2 text-[12px]">
-            <span className="font-semibold text-slate-800">{item.label}</span>
-            <span className="tabular-nums text-slate-600">{item.value}</span>
-          </div>
-        ))}
-        {card.note && <p className="text-[11px] text-slate-500">{card.note}</p>}
+      <div className={shell}>
+        <div className="result-card__kicker">{card.title}</div>
+        <div className="result-card__list">
+          {card.items.map((item) => (
+            <div key={item.label} className="result-card__row">
+              <span className="font-semibold text-slate-800">{item.label}</span>
+              <span className="tabular-nums text-slate-600">{item.value}</span>
+            </div>
+          ))}
+        </div>
+        {card.note ? <p className="result-card__note">{card.note}</p> : null}
       </div>
     );
   }
 
   return (
-    <div className={`result-card text-[12px] ${card.ok ? 'text-slate-600' : 'border-red-200 bg-red-50/80 text-red-700'}`}>
-      <div className="font-semibold text-slate-800">{card.title}</div>
-      <div className="mt-1 leading-relaxed">{card.summary}</div>
-      {card.link && (
-        <a href={card.link} target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center gap-1 text-blue-600 hover:text-violet-600">
+    <div className={`${shell} ${card.ok ? '' : 'result-card--error'}`}>
+      <div className="result-card__title">{card.title}</div>
+      <p className="result-card__note mt-1">{card.summary}</p>
+      {card.link ? (
+        <a href={card.link} target="_blank" rel="noreferrer" className="result-card__cta mt-2">
           Open link <ExternalLink className="h-3.5 w-3.5" />
         </a>
-      )}
+      ) : null}
     </div>
   );
 }
