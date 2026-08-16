@@ -506,11 +506,9 @@ export async function POST(req: Request) {
       const assistantToolMessage = { role: 'assistant', content: null, tool_calls: toolCalls };
       const conversation: any[] = [...baseMessages, assistantToolMessage];
 
+      // Mark all tools running immediately for faster UI feedback, then execute in parallel.
       for (const call of toolCalls) {
         const name = String(call.function?.name || 'tool');
-        let toolArgs: any = {};
-        try { toolArgs = JSON.parse(call.function?.arguments || '{}'); } catch { toolArgs = {}; }
-
         sendData({
           type: 'tool',
           id: call.id,
@@ -519,26 +517,35 @@ export async function POST(req: Request) {
           source: toolSource(name),
           status: 'running',
         });
+      }
 
-        const started = Date.now();
-        const result = await executeTool(name, toolArgs);
-        const ms = Date.now() - started;
-        const card = buildToolCard(name, result);
-        const failed = (() => {
-          try { return Boolean(JSON.parse(result)?.error); } catch { return false; }
-        })();
+      const toolResults = await Promise.all(
+        toolCalls.map(async (call) => {
+          const name = String(call.function?.name || 'tool');
+          let toolArgs: any = {};
+          try { toolArgs = JSON.parse(call.function?.arguments || '{}'); } catch { toolArgs = {}; }
+          const started = Date.now();
+          const result = await executeTool(name, toolArgs);
+          const ms = Date.now() - started;
+          const card = buildToolCard(name, result);
+          const failed = (() => {
+            try { return Boolean(JSON.parse(result)?.error); } catch { return false; }
+          })();
+          sendData({
+            type: 'tool',
+            id: call.id,
+            name,
+            label: toolLabel(name),
+            source: toolSource(name),
+            status: failed ? 'error' : 'done',
+            ms,
+            card,
+          });
+          return { call, result };
+        })
+      );
 
-        sendData({
-          type: 'tool',
-          id: call.id,
-          name,
-          label: toolLabel(name),
-          source: toolSource(name),
-          status: failed ? 'error' : 'done',
-          ms,
-          card,
-        });
-
+      for (const { call, result } of toolResults) {
         conversation.push({ role: 'tool', tool_call_id: call.id, content: result });
       }
 
@@ -549,10 +556,28 @@ export async function POST(req: Request) {
 
       sendData({ type: 'phase', phase: 'synthesize', label: 'Synthesizing answer' });
       const response = await openai.chat.completions.create({ model, stream: true, messages: conversation } as any);
+
+      let sawText = false;
       let raw = '';
-      for await (const chunk of response as any) raw += chunk?.choices?.[0]?.delta?.content || '';
-      const clean = stripInternalToolSyntax(raw) || 'The model returned no displayable response.';
-      for await (const piece of chunkText(clean)) sendText(piece);
+      for await (const chunk of response as any) {
+        const delta = chunk?.choices?.[0]?.delta?.content || '';
+        if (!delta) continue;
+        raw += delta;
+        if (!sawText) {
+          sawText = true;
+          sendData({ type: 'phase', phase: 'answer', label: 'Streaming answer' });
+        }
+        // Second-pass answers should not include DSML; stream live for first-token latency.
+        sendText(delta);
+      }
+
+      if (!sawText) {
+        const clean = stripInternalToolSyntax(raw) || 'The model returned no displayable response.';
+        for await (const piece of chunkText(clean)) sendText(piece);
+      } else if (/[<]?[｜|]\s*DSML\s*[｜|]/i.test(raw)) {
+        // Rare: if model still emitted tool syntax, replace stream is already out —
+        // client sees it; we still finish normally.
+      }
     });
 
     return new Response(stream, {

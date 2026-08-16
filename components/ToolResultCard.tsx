@@ -18,6 +18,16 @@ function changeClass(n?: number) {
   return 'text-slate-500';
 }
 
+function Metric({ label, value }: { label: string; value?: string }) {
+  if (!value) return null;
+  return (
+    <div className="rounded-lg bg-white/70 px-2.5 py-2">
+      <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">{label}</div>
+      <div className="mt-0.5 break-all text-sm font-semibold tabular-nums text-slate-900">{value}</div>
+    </div>
+  );
+}
+
 export function ToolResultCard({ card }: { card: ToolCard }) {
   if (card.kind === 'price') {
     return (
@@ -38,12 +48,8 @@ export function ToolResultCard({ card }: { card: ToolCard }) {
   if (card.kind === 'tvl') {
     return (
       <div className="result-card">
-        <div className="flex items-end justify-between gap-3">
-          <div>
-            <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">{card.title}</div>
-            <div className="mt-0.5 text-xl font-bold tabular-nums text-slate-900">{formatUsd(card.tvlUsd)}</div>
-          </div>
-        </div>
+        <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">{card.title}</div>
+        <div className="mt-0.5 text-xl font-bold tabular-nums text-slate-900">{formatUsd(card.tvlUsd)}</div>
         {card.chains && card.chains.length > 0 && (
           <div className="mt-3 grid gap-1.5 sm:grid-cols-2">
             {card.chains.map((c) => (
@@ -94,10 +100,105 @@ export function ToolResultCard({ card }: { card: ToolCard }) {
     );
   }
 
+  if (card.kind === 'swap') {
+    return (
+      <div className="result-card space-y-3">
+        <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">{card.title}</div>
+        <div className="grid gap-2 sm:grid-cols-2">
+          <Metric label="Sell" value={card.tokenIn && card.amountIn ? `${card.amountIn} ${card.tokenIn}` : card.tokenIn} />
+          <Metric label="Buy" value={card.tokenOut && card.amountOut ? `${card.amountOut} ${card.tokenOut}` : card.tokenOut} />
+          <Metric label="Price" value={card.price} />
+          <Metric label="Chain" value={card.chain} />
+        </div>
+        {card.note && <p className="text-[11px] leading-relaxed text-slate-500">{card.note}</p>}
+        {card.deepLink && (
+          <a
+            href={card.deepLink}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-1.5 rounded-lg bg-pink-500/10 px-3 py-2 text-xs font-semibold text-pink-700 transition hover:bg-pink-500/15"
+          >
+            Open in Uniswap <ExternalLink className="h-3.5 w-3.5" />
+          </a>
+        )}
+      </div>
+    );
+  }
+
+  if (card.kind === 'perp') {
+    return (
+      <div className="result-card space-y-3">
+        <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">{card.title}</div>
+        <div className="grid gap-2 sm:grid-cols-2">
+          <Metric label="Market" value={card.coin} />
+          <Metric label="Side" value={card.side} />
+          <Metric label="Size" value={card.sizeUsd} />
+          <Metric label="Avg / Mid" value={card.avgPrice} />
+          <Metric label="Slippage / Spread" value={card.slippage} />
+          <Metric label="Depth" value={card.depth} />
+        </div>
+      </div>
+    );
+  }
+
+  if (card.kind === 'markets') {
+    return (
+      <div className="result-card space-y-2">
+        <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">{card.title}</div>
+        {card.items.map((item, i) => (
+          <div key={`${item.name}-${i}`} className="flex items-start justify-between gap-3 rounded-lg bg-white/70 px-2.5 py-2">
+            <div className="min-w-0">
+              <div className="truncate text-[12px] font-semibold text-slate-800">{item.name}</div>
+              {item.detail && <div className="truncate text-[10px] text-slate-500">{item.detail}</div>}
+            </div>
+            {item.odds && <div className="shrink-0 text-[12px] font-bold tabular-nums text-slate-900">{item.odds}</div>}
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (card.kind === 'doctor') {
+    return (
+      <div className="result-card space-y-2">
+        <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">{card.title}</div>
+        {card.checks.map((check) => (
+          <div key={check.label} className="flex items-start gap-2 rounded-lg bg-white/70 px-2.5 py-2 text-[12px]">
+            <span className={`mt-0.5 h-2 w-2 shrink-0 rounded-full ${check.ok ? 'bg-emerald-500' : 'bg-red-500'}`} />
+            <div className="min-w-0">
+              <div className="font-semibold text-slate-800">{check.label}</div>
+              {check.detail && <div className="text-[11px] text-slate-500">{check.detail}</div>}
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (card.kind === 'wallet') {
+    return (
+      <div className="result-card space-y-2">
+        <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">{card.title}</div>
+        {card.items.map((item) => (
+          <div key={item.label} className="flex items-center justify-between gap-3 rounded-lg bg-white/70 px-2.5 py-2 text-[12px]">
+            <span className="font-semibold text-slate-800">{item.label}</span>
+            <span className="tabular-nums text-slate-600">{item.value}</span>
+          </div>
+        ))}
+        {card.note && <p className="text-[11px] text-slate-500">{card.note}</p>}
+      </div>
+    );
+  }
+
   return (
     <div className={`result-card text-[12px] ${card.ok ? 'text-slate-600' : 'border-red-200 bg-red-50/80 text-red-700'}`}>
       <div className="font-semibold text-slate-800">{card.title}</div>
       <div className="mt-1 leading-relaxed">{card.summary}</div>
+      {card.link && (
+        <a href={card.link} target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center gap-1 text-blue-600 hover:text-violet-600">
+          Open link <ExternalLink className="h-3.5 w-3.5" />
+        </a>
+      )}
     </div>
   );
 }
