@@ -1,0 +1,29 @@
+{
+  "source": "defi-omni-cli.run_doctor",
+  "data": {
+    "ok": true,
+    "chain_id": 1,
+    "checks": [
+      {
+        "name": "chain_supported",
+        "ok": true,
+        "detail": "Ethereum (id=1)"
+      },
+      {
+        "name": "rpc_chain_id",
+        "ok": true,
+        "detail": "reported 1, expected 1"
+      },
+      {
+        "name": "signer",
+        "ok": true,
+        "detail": "no signer key available: No private key provided (via argument or SIGNER_PRIVATE_KEY env var)"
+      },
+      {
+        "name": "gas_price",
+        "ok": true,
+        "detail": "0.042379055 gwei"
+      }
+    ]
+  }
+}

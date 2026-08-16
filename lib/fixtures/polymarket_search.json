@@ -1,0 +1,59 @@
+{
+  "source": "polymarket-sdk.search",
+  "data": {
+    "events": [
+      {
+        "id": "89502",
+        "title": "What price will Bitcoin hit in 2026?",
+        "slug": "what-price-will-bitcoin-hit-before-2027",
+        "ticker": "what-price-will-bitcoin-hit-before-2027",
+        "volume": 52666030.201394,
+        "volume24hr": 46120.764906000004,
+        "markets": [
+          {
+            "id": "2463838",
+            "question": "Will Bitcoin dip to $60,000 by December 31, 2026?",
+            "slug": "will-bitcoin-dip-to-60k-by-december-31-2026-from-june-7",
+            "outcomePrices": null,
+            "lastTradePrice": 0,
+            "bestBid": 0
+          },
+          {
+            "id": "2463847",
+            "question": "Will Bitcoin dip to $60,000 by December 31, 2026?",
+            "slug": "will-bitcoin-dip-to-60k-by-december-31-2026-from-june-8-887",
+            "outcomePrices": "[\"1\", \"0\"]",
+            "lastTradePrice": 0.999,
+            "bestBid": 0.999
+          }
+        ]
+      },
+      {
+        "id": "780132",
+        "title": "What price will Bitcoin hit in August?",
+        "slug": "what-price-will-bitcoin-hit-in-august-2026",
+        "ticker": "what-price-will-bitcoin-hit-in-august-2026",
+        "volume": 6884951.571051,
+        "volume24hr": 416177.564446,
+        "markets": [
+          {
+            "id": "3257332",
+            "question": "Will Bitcoin reach $100,000 in August?",
+            "slug": "will-bitcoin-reach-100k-in-august-2026",
+            "outcomePrices": "[\"0.0015\", \"0.9985\"]",
+            "lastTradePrice": 0.002,
+            "bestBid": 0.001
+          },
+          {
+            "id": "3257334",
+            "question": "Will Bitcoin reach $85,000 in August?",
+            "slug": "will-bitcoin-reach-85k-in-august-2026",
+            "outcomePrices": "[\"0.003\", \"0.997\"]",
+            "lastTradePrice": 0.003,
+            "bestBid": 0.002
+          }
+        ]
+      }
+    ]
+  }
+}

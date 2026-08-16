@@ -1,0 +1,19 @@
+{
+  "source": "hl-trade-flow.prepare_quote",
+  "data": {
+    "coin": "BTC",
+    "side": "buy",
+    "size_usd": "10000.0",
+    "mid_price": "63051.5",
+    "estimated_fill_price": "63052.00000000000000000000000",
+    "estimated_fill_size": "0.1585992514115333375626467043",
+    "slippage_bps": "0.07930025455381711775294798696",
+    "max_slippage_bps": "50.000",
+    "slippage_exceeded": false,
+    "slippage_cost_usd": "0.079299625705766668781324",
+    "book_depth_ask": 20,
+    "book_depth_bid": 20,
+    "filled_pct": "100",
+    "venue": "hyperliquid"
+  }
+}

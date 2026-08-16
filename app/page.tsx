@@ -11,12 +11,16 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Trash2,
+  Copy,
+  Check,
   X,
 } from 'lucide-react';
 import { Markdown } from '@/components/Markdown';
 import { RepoPanel } from '@/components/RepoPanel';
 import { ToolActivityRail, type PhaseEvent, type ToolEvent } from '@/components/ToolActivityRail';
+import { ToolResultCard } from '@/components/ToolResultCard';
 import { LIVE_TOOLS } from '@/lib/live-tools';
+import { exportBriefingMarkdown } from '@/lib/export-briefing';
 import { clearSession, loadSession, saveSession, type SessionSnapshot, type TurnReceipt } from '@/lib/session';
 
 const MODELS = [
@@ -74,6 +78,8 @@ function AgentConsole({ boot }: { boot: SessionSnapshot | null }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [receiptsByTurn, setReceiptsByTurn] = useState<Record<string, TurnReceipt>>(boot?.receiptsByTurn || {});
   const [composerPad, setComposerPad] = useState(0);
+  const [retryingId, setRetryingId] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const activeTurnRef = useRef<string | null>(null);
 
@@ -194,6 +200,52 @@ function AgentConsole({ boot }: { boot: SessionSnapshot | null }) {
     clearSession();
   };
 
+  const retryTool = async (turnId: string, tool: ToolEvent) => {
+    const key = tool.id || tool.name;
+    setRetryingId(key);
+    try {
+      const res = await fetch('/api/tools/run', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: tool.name, args: tool.args || {} }),
+      });
+      const payload = await res.json();
+      if (!res.ok) throw new Error(payload?.error || res.statusText);
+      setReceiptsByTurn((prev) => {
+        const current = prev[turnId] || { tools: [] };
+        const tools = current.tools.map((t) => {
+          const tid = t.id || t.name;
+          if (tid !== key) return t;
+          return {
+            ...t,
+            status: payload.status,
+            ms: payload.ms,
+            card: payload.card,
+            source: payload.source || t.source,
+            label: payload.label || t.label,
+            args: payload.args || t.args,
+          } as ToolEvent;
+        });
+        return { ...prev, [turnId]: { ...current, tools } };
+      });
+    } catch (err: any) {
+      setError(String(err?.message || err));
+    } finally {
+      setRetryingId(null);
+    }
+  };
+
+  const copyBriefing = async () => {
+    const md = exportBriefingMarkdown(messages, receiptsByTurn);
+    try {
+      await navigator.clipboard.writeText(md);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1600);
+    } catch {
+      setError('Clipboard unavailable — select and copy manually.');
+    }
+  };
+
   const receiptFor = (userMessageId: string, isActive: boolean): TurnReceipt => {
     if (isActive && (live.tools.length > 0 || live.phase)) {
       return { phase: live.phase, tools: live.tools };
@@ -247,6 +299,16 @@ function AgentConsole({ boot }: { boot: SessionSnapshot | null }) {
                 <option key={m.id} value={m.id}>{m.label}</option>
               ))}
             </select>
+            <button
+              type="button"
+              onClick={() => void copyBriefing()}
+              disabled={messages.length === 0}
+              className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-slate-200 bg-white/80 px-2.5 py-2 text-xs font-semibold text-slate-600 transition hover:border-blue-200 hover:text-blue-700 disabled:cursor-not-allowed disabled:opacity-40"
+              title="Copy briefing as Markdown"
+            >
+              {copied ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5" />}
+              <span className="hidden sm:inline">{copied ? 'Copied' : 'Export'}</span>
+            </button>
             <button
               type="button"
               onClick={clearChat}
@@ -368,6 +430,7 @@ function AgentConsole({ boot }: { boot: SessionSnapshot | null }) {
                       if (m.role === 'user') {
                         const active = index === lastUserIndex;
                         const receipt = receiptFor(m.id, active);
+                        const showLiveCards = active && isLoading;
                         return (
                           <div key={m.id}>
                             <div className="briefing-query">
@@ -382,12 +445,23 @@ function AgentConsole({ boot }: { boot: SessionSnapshot | null }) {
                                   phase={receipt.phase}
                                   tools={receipt.tools}
                                   isLoading={active && isLoading}
+                                  showCards={showLiveCards}
+                                  retryingId={retryingId}
+                                  onRetry={(tool) => void retryTool(m.id, tool)}
                                 />
                               </div>
                             )}
                           </div>
                         );
                       }
+
+                      const prevUser = [...messages.slice(0, index)].reverse().find((x) => x.role === 'user');
+                      const prevIsActive = Boolean(prevUser) && messages.findIndex((x) => x.id === prevUser!.id) === lastUserIndex;
+                      const prevReceipt = prevUser ? receiptFor(prevUser.id, prevIsActive) : { tools: [] as ToolEvent[] };
+                      const highlightCards = prevReceipt.tools.filter(
+                        (t) => (t.status === 'done' || t.status === 'error') && t.card && t.card.kind !== 'generic'
+                      );
+
                       return (
                         <div key={m.id} className="briefing-finding">
                           <div className="mb-2 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
@@ -397,6 +471,19 @@ function AgentConsole({ boot }: { boot: SessionSnapshot | null }) {
                             Finding
                           </div>
                           <div className="rounded-2xl border border-slate-200/90 bg-white/90 px-5 py-4 text-[13.5px] leading-relaxed text-slate-700 shadow-[0_10px_30px_rgba(15,23,42,0.04)]">
+                            {highlightCards.length > 0 && (
+                              <div className="mb-4 space-y-2 border-b border-slate-100 pb-4">
+                                <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">
+                                  Key tool results
+                                </div>
+                                {highlightCards.map((t) => (
+                                  <div key={t.id || t.name}>
+                                    <div className="mb-1 text-[11px] font-semibold text-slate-500">{t.label || t.name}</div>
+                                    {t.card && <ToolResultCard card={t.card} />}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
                             <Markdown>{m.content || ''}</Markdown>
                           </div>
                         </div>

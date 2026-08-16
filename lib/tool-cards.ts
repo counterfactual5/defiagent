@@ -165,21 +165,27 @@ export function buildToolCard(name: string, raw: string): ToolCard | null {
   }
 
   if (name === 'get_gas_price') {
-    const d = parsed?.data || {};
+    const d = parsed?.data ?? parsed ?? {};
     const rows: { label: string; value: string }[] = [];
+    const fmt = (v: unknown) => {
+      const n = num(v);
+      return n == null ? `${v} gwei` : `${Number(n.toFixed(6))} gwei`;
+    };
     const add = (label: string, ...keys: string[]) => {
       for (const k of keys) {
-        if (d?.[k] != null) {
-          rows.push({ label, value: `${d[k]} gwei` });
+        const v = pick(d, k);
+        if (v != null) {
+          rows.push({ label, value: fmt(v) });
           return;
         }
       }
     };
-    add('Safe', 'SafeGasPrice', 'safe', 'low');
-    add('Standard', 'ProposeGasPrice', 'standard', 'propose');
-    add('Fast', 'FastGasPrice', 'fast');
+    add('Safe', 'safe_gwei', 'SafeGasPrice', 'safe', 'low');
+    add('Standard', 'propose_gwei', 'selected_gwei', 'ProposeGasPrice', 'standard', 'propose');
+    add('Fast', 'fast_gwei', 'FastGasPrice', 'fast');
     if (rows.length === 0 && typeof d === 'object') {
       for (const [k, v] of Object.entries(d).slice(0, 4)) {
+        if (typeof v === 'object') continue;
         rows.push({ label: k, value: String(v) });
       }
     }
@@ -187,16 +193,24 @@ export function buildToolCard(name: string, raw: string): ToolCard | null {
   }
 
   if (name === 'uniswap_quote_plan' || name === 'uniswap_swap_link') {
-    const deepLink = str(parsed?.deepLink) || str(pick(data, 'deepLink', 'execution_links.uniswap_app', 'uniswap_app'));
+    const d = data;
+    const deepLink = str(parsed?.deepLink) || str(pick(d, 'deepLink', 'execution_links.uniswap_app'));
+    const tokenInSym = str(pick(d, 'tokenIn.symbol', 'token_in', 'tokenIn', 'apiTokenIn.symbol'));
+    const tokenOutSym = str(pick(d, 'tokenOut.symbol', 'token_out', 'tokenOut', 'apiTokenOut.symbol'));
+    const amountIn = str(pick(d, 'humanAmount', 'amount', 'amount_in', 'amountIn'));
+    const amountOutRaw = pick(d, 'on_chain_quote.expected_output_if_no_slippage', 'coingecko_indicative.expected_output_usd_stable', 'amount_out');
+    const amountOut = amountOutRaw == null ? undefined : String(typeof amountOutRaw === 'number' ? Number(amountOutRaw.toFixed(4)) : amountOutRaw);
+    const price = str(pick(d, 'coingecko_indicative.eth_usd', 'on_chain_quote.expected_output_if_no_slippage', 'price'));
+    const chain = str(pick(d, 'chain.key', 'chain', 'chain.chainId')) || 'ethereum';
     return {
       kind: 'swap',
       title: name === 'uniswap_swap_link' ? 'Uniswap Deep Link' : 'Uniswap Quote Plan',
-      tokenIn: str(pick(data, 'token_in', 'tokenIn', 'input_token', 'sellToken')),
-      tokenOut: str(pick(data, 'token_out', 'tokenOut', 'output_token', 'buyToken')),
-      amountIn: str(pick(data, 'amount_in', 'amountIn', 'sellAmount', 'input_amount')),
-      amountOut: str(pick(data, 'amount_out', 'amountOut', 'buyAmount', 'output_amount', 'quote.amount_out')),
-      price: str(pick(data, 'price', 'reference_price', 'mid_price', 'quote.price')),
-      chain: str(pick(data, 'chain', 'chain_id', 'network')) || 'ethereum',
+      tokenIn: tokenInSym,
+      tokenOut: tokenOutSym,
+      amountIn,
+      amountOut,
+      price: price ? (String(price).includes(' ') ? price : `~${price}`) : undefined,
+      chain,
       deepLink,
       note: deepLink ? 'Open Uniswap to review and sign — this agent does not broadcast.' : undefined,
     };
@@ -225,29 +239,63 @@ export function buildToolCard(name: string, raw: string): ToolCard | null {
   }
 
   if (name === 'hyperliquid_quote') {
+    const d = data;
+    const slipBps = num(pick(d, 'slippage_bps'));
+    const maxBps = num(pick(d, 'max_slippage_bps'));
+    const slip =
+      slipBps != null
+        ? `${(slipBps / 100).toFixed(4)}%${maxBps != null ? ` / max ${(maxBps / 100).toFixed(2)}%` : ''}`
+        : str(pick(d, 'slippage_pct', 'slippage', 'max_slippage_pct'));
+    const depthAsk = pick(d, 'book_depth_ask');
+    const depthBid = pick(d, 'book_depth_bid');
+    const depth =
+      depthAsk != null || depthBid != null
+        ? `ask ${depthAsk ?? '—'} · bid ${depthBid ?? '—'}`
+        : str(pick(d, 'depth', 'filled_pct'));
     return {
       kind: 'perp',
       title: 'Hyperliquid L2 Quote',
-      coin: str(pick(data, 'coin', 'symbol', 'asset')),
-      side: str(pick(data, 'side')),
-      sizeUsd: str(pick(data, 'size_usd', 'sizeUsd', 'notional')),
-      avgPrice: str(pick(data, 'avg_price', 'avgPrice', 'fill_price', 'price', 'estimate.avg_price')),
-      slippage: str(pick(data, 'slippage_pct', 'slippage', 'max_slippage_pct', 'estimate.slippage_pct')),
-      depth: str(pick(data, 'depth', 'book_depth', 'levels_used', 'estimate.depth')),
+      coin: str(pick(d, 'coin', 'symbol', 'asset')),
+      side: str(pick(d, 'side')),
+      sizeUsd: str(pick(d, 'size_usd', 'sizeUsd', 'notional')),
+      avgPrice: str(pick(d, 'estimated_fill_price', 'mid_price', 'avg_price', 'fill_price')),
+      slippage: slip,
+      depth,
     };
   }
 
   if (name === 'polymarket_search') {
-    const markets = asList(pick(data, 'markets', 'results', 'events') || data).slice(0, 5);
-    const items = markets.map((m: any) => ({
-      name: str(m?.question || m?.title || m?.name || m?.slug) || 'Market',
-      detail: str(m?.slug || m?.id),
-      odds: str(m?.outcomePrices?.[0] ?? m?.yes_price ?? m?.probability ?? m?.last_price),
-    }));
+    const d = data;
+    const events = asList(pick(d, 'events') || []);
+    const items: { name: string; detail?: string; odds?: string }[] = [];
+    for (const ev of events.slice(0, 5)) {
+      items.push({
+        name: str(ev?.title || ev?.ticker || ev?.slug) || 'Event',
+        detail: str(ev?.slug || ev?.id),
+        odds: ev?.volume24hr != null ? `24h vol ${Number(ev.volume24hr).toLocaleString()}` : str(ev?.volume),
+      });
+      for (const m of asList(ev?.markets).slice(0, 2)) {
+        items.push({
+          name: str(m?.question || m?.slug) || 'Market',
+          detail: str(m?.slug || m?.id),
+          odds: str(m?.outcomePrices?.[0] ?? m?.lastTradePrice ?? m?.bestBid),
+        });
+      }
+    }
+    if (items.length === 0) {
+      const markets = asList(pick(d, 'markets', 'results') || d).slice(0, 5);
+      for (const m of markets) {
+        items.push({
+          name: str(m?.question || m?.title || m?.name || m?.slug) || 'Market',
+          detail: str(m?.slug || m?.id),
+          odds: str(m?.outcomePrices?.[0] ?? m?.yes_price ?? m?.probability),
+        });
+      }
+    }
     return {
       kind: 'markets',
       title: 'Polymarket Search',
-      items: items.length ? items : [{ name: 'No markets', detail: 'Empty result set' }],
+      items: items.length ? items.slice(0, 6) : [{ name: 'No markets', detail: 'Empty result set' }],
     };
   }
 
