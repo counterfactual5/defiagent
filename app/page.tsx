@@ -502,10 +502,10 @@ function AgentConsole({ boot }: { boot: SessionSnapshot | null }) {
                     <Sparkles className="h-5 w-5 text-white" />
                   </div>
                   <h2 className="ui-wordmark text-xl">
-                    Live on-chain tools
+                    Live briefings, not just lookups
                   </h2>
                   <p className="mt-2 max-w-md text-sm leading-relaxed text-[var(--muted)]">
-                    Sessions autosave in this browser. Run a live call from the rail — receipts stay with each finding.
+                    Ask for a judgment — cheap or expensive, proceed or wait. Tools fetch evidence; the finding is the call.
                   </p>
                   <div className="mt-8 flex flex-wrap justify-center gap-2">
                     {LIVE_TOOLS.slice(0, 3).map((tool) => (

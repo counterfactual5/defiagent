@@ -85,9 +85,16 @@ export function collectToolCalls(message: any): ParsedToolCall[] {
   return parseDsmlToolCalls(messageText(message));
 }
 
+export function looksLikeToolSyntax(text: string): boolean {
+  const head = text.slice(0, 120);
+  return /[<]?[｜|]\s*DSML\s*[｜|]/i.test(head)
+    || /^\s*```(?:json|tool_call|tool)\b/i.test(head)
+    || /"tool_calls"\s*:/i.test(head);
+}
+
 export function displayableText(raw: string): string {
   if (!raw) return '';
-  if (parseDsmlToolCalls(raw).length > 0) return '';
+  if (looksLikeToolSyntax(raw) || parseDsmlToolCalls(raw).length > 0) return '';
   return stripInternalToolSyntax(raw).trim();
 }
 
@@ -106,13 +113,15 @@ function findingLine(card: ToolCard): string {
       return `${card.title} has ${card.stars ?? '—'} stars${card.language ? ` (${card.language})` : ''}.`;
     case 'gas': {
       const standard = card.rows.find((row) => /standard/i.test(row.label)) || card.rows[1] || card.rows[0];
-      return `Ethereum gas is ${standard?.value || 'available'} at the standard tier.`;
+      const n = Number(String(standard?.value || '').replace(/[^\d.]/g, ''));
+      const read = Number.isFinite(n) && n < 1 ? ' — cheap enough to transact' : Number.isFinite(n) && n > 30 ? ' — wait unless urgent' : '';
+      return `Ethereum gas is ${standard?.value || 'available'} at the standard tier${read}.`;
     }
     case 'swap': {
       const pair = [card.amountIn, card.tokenIn, '→', card.tokenOut].filter(Boolean).join(' ');
       return card.deepLink
-        ? `${pair} is ready — open Uniswap to review and sign.`
-        : `${pair} quote/plan is ready.`;
+        ? `${pair} is ready to review — check impact on Uniswap before you sign.`
+        : `${pair} quote/plan is ready; treat it as indicative until you open the venue.`;
     }
     case 'perp':
       return `${card.side || 'Quote'} ${card.coin || ''} fill ${card.avgPrice || '—'} (slip ${card.slippage || '—'}).`.replace(/\s+/g, ' ').trim();

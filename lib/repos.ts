@@ -19,7 +19,7 @@ export const REPOS: RepoMeta[] = [
     url: 'https://github.com/counterfactual5/uni-exec-engine',
     badge: 'Python',
     demoPrompt:
-      'Use uni-exec-engine to build a quote request plan for swapping 1 ETH to USDC on Ethereum. Do not invent an output amount.',
+      'Plan a 1 ETH → USDC swap on Ethereum with uni-exec-engine. Judge whether the impact looks acceptable for that size, then give the Uniswap deep link to review and sign. Do not invent an output amount.',
   },
   {
     name: 'defi-omni-cli',
@@ -28,7 +28,7 @@ export const REPOS: RepoMeta[] = [
     url: 'https://github.com/counterfactual5/defi-omni-cli',
     badge: 'Python',
     demoPrompt:
-      'Run the defi-omni-cli doctor on Ethereum mainnet and explain each RPC and gas preflight check.',
+      'Run the defi-omni-cli doctor on Ethereum mainnet. Tell me which preflight checks actually matter before I send a tx, and which are just noise.',
   },
   {
     name: 'hl-trade-flow',
@@ -37,7 +37,7 @@ export const REPOS: RepoMeta[] = [
     url: 'https://github.com/counterfactual5/hl-trade-flow',
     badge: 'Python',
     demoPrompt:
-      'Use hl-trade-flow to estimate a $10,000 BTC buy from the live Hyperliquid L2 book with a 0.5% slippage limit.',
+      'Estimate a $10,000 BTC buy on Hyperliquid from the live L2 book (0.5% max slip). Is that size eating the book, and would you clip it?',
   },
   {
     name: 'polymarket-py',
@@ -46,7 +46,7 @@ export const REPOS: RepoMeta[] = [
     url: 'https://github.com/counterfactual5/polymarket-py',
     badge: 'Python',
     demoPrompt:
-      'Use polymarket-py to search for active Bitcoin prediction markets and summarize their live outcome prices.',
+      'Search live Bitcoin markets on Polymarket and brief me: which outcomes are actually trading, and which look like dead books?',
   },
   {
     name: 'agent-delegate',

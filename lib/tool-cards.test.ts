@@ -158,7 +158,9 @@ describe('system prompt briefing contract', () => {
   it('requires Finding → Evidence structure', () => {
     assert.match(SYSTEM_PROMPT, /Finding/);
     assert.match(SYSTEM_PROMPT, /Evidence/);
-    assert.match(POST_TOOL_SYSTEM, /Finding → Evidence/);
+    assert.match(SYSTEM_PROMPT, /operator analyst/i);
+    assert.match(POST_TOOL_SYSTEM, /judgment/i);
+    assert.match(POST_TOOL_SYSTEM, /Finding/);
   });
 });
 

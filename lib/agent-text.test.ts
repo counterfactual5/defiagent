@@ -7,6 +7,7 @@ import {
   collectToolCalls,
   displayableText,
   fallbackBriefing,
+  looksLikeToolSyntax,
   parseDsmlToolCalls,
   showRailResultCards,
 } from './agent-text.ts';
@@ -25,6 +26,11 @@ describe('DSML and displayable text', () => {
     assert.equal(calls.length, 1);
     assert.equal(calls[0].function.name, 'get_gas_price');
     assert.equal(JSON.parse(calls[0].function.arguments).chain, 'ethereum');
+  });
+
+  it('does not treat a Finding as tool syntax', () => {
+    assert.equal(looksLikeToolSyntax('**Finding:** Ethereum gas is cheap enough to transact.'), false);
+    assert.equal(looksLikeToolSyntax('<｜DSML｜invoke name="get_gas_price">'), true);
   });
 
   it('strips DSML so a tool-only message is not displayable', () => {

@@ -100,7 +100,7 @@ export function RepoPanel({
           Built-in Live Tools
         </div>
         <p className="text-[11px] leading-relaxed text-[var(--muted)]">
-          Click to run immediately. If the composer already has a draft, the prompt is armed as a chip instead.
+          Ask for a live briefing. If the composer already has a draft, the prompt is armed instead of overwritten.
         </p>
       </div>
 
@@ -199,7 +199,7 @@ export function RepoPanel({
           GitHub Projects
         </div>
         <p className="text-[11px] leading-relaxed text-[var(--muted)]">
-          Open-source DeFi & agent suite — one click sends a demo brief; live stars from GitHub.
+          Open-source DeFi & agent suite — one click asks for a demo briefing; live stars from GitHub.
         </p>
       </div>
 

@@ -3,6 +3,7 @@ import {
   collectToolCalls,
   displayableText,
   fallbackBriefing,
+  looksLikeToolSyntax,
   messageText,
 } from '@/lib/agent-text';
 import { buildToolCard } from '@/lib/tool-cards';
@@ -289,9 +290,33 @@ export async function POST(req: Request) {
       return openai.chat.completions.create(payload as any);
     };
 
-    const streamAnswer = async (sendData: (p: Record<string, unknown>) => void, sendText: (c: string) => void, text: string) => {
-      sendData({ type: 'phase', phase: 'answer', label: 'Streaming answer' });
-      for await (const chunk of chunkText(text)) sendText(chunk);
+    const streamModelBriefing = async (
+      conversation: any[],
+      sendData: (p: Record<string, unknown>) => void,
+      sendText: (c: string) => void,
+    ): Promise<string> => {
+      sendData({ type: 'phase', phase: 'synthesize', label: 'Writing finding' });
+      const response: any = await openai.chat.completions.create({
+        model, stream: true, messages: conversation,
+      } as any);
+
+      let raw = '';
+      let released = false;
+      for await (const chunk of response) {
+        const delta = chunk?.choices?.[0]?.delta?.content || '';
+        if (!delta) continue;
+        raw += delta;
+        if (looksLikeToolSyntax(raw)) continue;
+        if (!released) {
+          if (raw.trim().length < 12) continue;
+          released = true;
+          sendData({ type: 'phase', phase: 'answer', label: 'Streaming answer' });
+          sendText(raw);
+          continue;
+        }
+        sendText(delta);
+      }
+      return displayableText(raw);
     };
 
     const stream = agentDataStream(async ({ sendData, sendText }) => {
@@ -302,8 +327,9 @@ export async function POST(req: Request) {
       const toolCalls = collectToolCalls(firstMsg);
 
       if (toolCalls.length === 0) {
+        sendData({ type: 'phase', phase: 'answer', label: 'Writing answer' });
         const text = displayableText(messageText(firstMsg)) || 'The model returned no displayable response.';
-        await streamAnswer(sendData, sendText, text);
+        for await (const chunk of chunkText(text)) sendText(chunk);
         return;
       }
 
@@ -365,26 +391,16 @@ export async function POST(req: Request) {
         content: POST_TOOL_SYSTEM,
       });
 
-      const local = fallbackBriefing(toolResults);
-      sendData({ type: 'phase', phase: 'synthesize', label: 'Writing finding' });
-
-      // Prefer a model briefing, but never leave the turn on tools-only.
-      // Gateways often stall or emit another tool call here; 6s then fall back.
-      let text = local;
+      let written = '';
       try {
-        const second: any = await Promise.race([
-          complete(conversation, 'none'),
-          new Promise((_, reject) => {
-            setTimeout(() => reject(new Error('synthesis-timeout')), 6_000);
-          }),
-        ]);
-        const written = displayableText(messageText(second?.choices?.[0]?.message));
-        if (written) text = written;
+        written = await streamModelBriefing(conversation, sendData, sendText);
       } catch {
-        text = local;
+        written = '';
       }
-
-      await streamAnswer(sendData, sendText, text);
+      if (!written) {
+        sendData({ type: 'phase', phase: 'answer', label: 'Streaming answer' });
+        for await (const chunk of chunkText(fallbackBriefing(toolResults))) sendText(chunk);
+      }
     });
 
     return new Response(stream, {
