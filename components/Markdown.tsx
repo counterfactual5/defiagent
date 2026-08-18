@@ -50,7 +50,13 @@ export function Markdown({ children }: { children: string }) {
             const label = collectText(children).trim();
             const redundant = chip && label.toLowerCase().includes(chip.toLowerCase());
             return (
-              <a href={href} target="_blank" rel="noreferrer" className="md-a">
+              <a
+                href={href}
+                target="_blank"
+                rel="noreferrer"
+                className="md-a"
+                onClick={(e) => e.stopPropagation()}
+              >
                 <span>{children}</span>
                 {chip && !redundant ? <span className="md-cite-chip">{chip}</span> : null}
               </a>

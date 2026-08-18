@@ -22,6 +22,7 @@ import { ToolResultCard } from '@/components/ToolResultCard';
 import { LIVE_TOOLS } from '@/lib/live-tools';
 import { exportBriefingMarkdown } from '@/lib/export-briefing';
 import { formatFetchedAt } from '@/lib/format-time';
+import { showRailResultCards } from '@/lib/agent-text';
 import {
   clearSession,
   clearWorkbench,
@@ -532,9 +533,9 @@ function AgentConsole({ boot }: { boot: SessionSnapshot | null }) {
                       if (m.role === 'user') {
                         const active = index === lastUserIndex;
                         const receipt = receiptFor(m.id, active);
-                        // Cards live in Finding once the assistant turn exists — avoid duplicate stacks.
+                        // Cards live in Finding once the assistant turn exists — otherwise keep them on the rail after the run ends so deep links stay tappable.
                         const findingStarted = messages.slice(index + 1).some((x) => x.role === 'assistant');
-                        const showLiveCards = active && isLoading && !findingStarted;
+                        const showLiveCards = showRailResultCards(findingStarted);
                         return (
                           <div key={m.id} className="space-y-3">
                             <div>
@@ -594,7 +595,15 @@ function AgentConsole({ boot }: { boot: SessionSnapshot | null }) {
                               </div>
                             ) : null}
                             <div className={streamingFinding && !m.content ? 'min-h-[1.25rem]' : undefined}>
-                              <Markdown>{m.content || (streamingFinding ? '_Synthesizing…_' : '')}</Markdown>
+                              {m.content ? (
+                                <Markdown>{m.content}</Markdown>
+                              ) : streamingFinding ? (
+                                <Markdown>_Synthesizing…_</Markdown>
+                              ) : (
+                                <p className="text-sm text-[var(--muted)]">
+                                  No written finding — use the receipts above. Deep links stay tappable.
+                                </p>
+                              )}
                             </div>
                           </div>
                         </div>

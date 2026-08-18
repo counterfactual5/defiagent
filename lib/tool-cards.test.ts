@@ -65,6 +65,7 @@ describe('buildToolCard calibrated fixtures', () => {
     if (card?.kind !== 'markets') return;
     assert.ok(card.items.length >= 1);
     assert.ok(card.items[0].name.length > 3);
+    assert.ok(card.items[0].href?.includes('polymarket.com'));
   });
 
   it('keeps errors as failed generic cards', () => {

@@ -209,24 +209,21 @@ export function RepoPanel({
           return (
             <div
               key={repo.name}
-              role="button"
-              tabIndex={0}
-              onClick={() => onInvoke(repo.demoPrompt, { label: repo.name })}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault();
-                  onInvoke(repo.demoPrompt, { label: repo.name });
-                }
-              }}
-              className="rail-card group cursor-pointer p-3"
+              className="rail-card p-3"
             >
               <div className="mb-1 flex items-center justify-between gap-2">
                 <span className="text-[13px] font-semibold text-[var(--text)]">{repo.name}</span>
                 <span className="ui-chip">{repo.badge}</span>
               </div>
               <p className="mb-2 line-clamp-2 text-[11px] leading-relaxed text-[var(--muted)]">{repo.desc}</p>
-              <div className="flex items-center justify-between text-[10px] font-medium text-[var(--faint)]">
-                <span className="text-[var(--accent)]">Run now →</span>
+              <div className="flex items-center justify-between gap-2 text-[10px] font-medium text-[var(--faint)]">
+                <button
+                  type="button"
+                  onClick={() => onInvoke(repo.demoPrompt, { label: repo.name })}
+                  className="min-h-11 rounded-md px-1 text-left text-[var(--accent)]"
+                >
+                  Run now →
+                </button>
                 <div className="flex items-center gap-2.5">
                   <span className="flex items-center gap-1 text-[var(--muted)]">
                     <Star className="h-3 w-3" />
@@ -240,11 +237,12 @@ export function RepoPanel({
                     href={repo.url}
                     target="_blank"
                     rel="noreferrer"
-                    onClick={(e) => e.stopPropagation()}
-                    className="flex items-center gap-1 hover:text-[var(--text)]"
+                    className="inline-flex min-h-11 items-center gap-1 rounded-md px-1.5 text-[var(--muted)] hover:text-[var(--text)]"
+                    aria-label={`Open ${repo.name} on GitHub`}
                   >
-                    <Github className="h-3 w-3" />
-                    <ExternalLink className="h-3 w-3 opacity-0 transition group-hover:opacity-100" />
+                    <Github className="h-3.5 w-3.5" />
+                    <span>Open</span>
+                    <ExternalLink className="h-3 w-3" />
                   </a>
                 </div>
               </div>

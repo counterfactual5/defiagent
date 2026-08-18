@@ -364,6 +364,10 @@ body {
   text-decoration: underline;
   text-decoration-color: color-mix(in srgb, var(--accent) 35%, transparent);
   text-underline-offset: 3px;
+  text-decoration-thickness: 1px;
+  pointer-events: auto;
+  position: relative;
+  z-index: 1;
 }
 .md-a:hover { text-decoration-color: var(--accent); }
 
@@ -590,9 +594,35 @@ body {
   align-items: center;
   gap: 0.35rem;
   margin-top: 0.6rem;
+  min-height: 44px;
+  padding: 0 0.15rem;
   font-size: 12px;
   font-weight: 650;
   color: var(--accent);
+  pointer-events: auto;
+  touch-action: manipulation;
+}
+
+.result-card__cta:hover {
+  color: var(--accent-end);
+}
+
+.result-card__inline-link {
+  display: block;
+  min-height: 36px;
+  padding: 0.35rem 0;
+  font-size: 12px;
+  font-weight: 650;
+  color: var(--accent);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  pointer-events: auto;
+  touch-action: manipulation;
+}
+
+.result-card__inline-link:hover {
+  color: var(--accent-end);
 }
 
 .result-card__list {
