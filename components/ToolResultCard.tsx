@@ -12,10 +12,10 @@ function formatUsd(n?: number) {
 }
 
 function changeClass(n?: number) {
-  if (n == null || !Number.isFinite(n)) return 'text-slate-500';
-  if (n > 0) return 'text-emerald-600';
-  if (n < 0) return 'text-red-500';
-  return 'text-slate-500';
+  if (n == null || !Number.isFinite(n)) return 'text-[var(--muted)]';
+  if (n > 0) return 'text-[var(--ok)]';
+  if (n < 0) return 'text-[var(--danger)]';
+  return 'text-[var(--muted)]';
 }
 
 function Metric({ label, value }: { label: string; value?: string }) {
@@ -63,7 +63,7 @@ export function ToolResultCard({ card, flush = false }: Props) {
             {card.chains.map((c) => (
               <div key={c.name} className="result-card__row">
                 <span>{c.name}</span>
-                <span className="tabular-nums text-slate-500">{formatUsd(c.tvl)}</span>
+                <span className="tabular-nums text-[var(--muted)]">{formatUsd(c.tvl)}</span>
               </div>
             ))}
           </div>
@@ -152,10 +152,10 @@ export function ToolResultCard({ card, flush = false }: Props) {
           {card.items.map((item, i) => (
             <div key={`${item.name}-${i}`} className="result-card__row">
               <div className="min-w-0">
-                <div className="truncate text-[12px] font-semibold text-slate-800">{item.name}</div>
-                {item.detail ? <div className="truncate text-[10px] text-slate-500">{item.detail}</div> : null}
+                <div className="truncate text-[12px] font-semibold text-[var(--text)]">{item.name}</div>
+                {item.detail ? <div className="truncate text-[10px] text-[var(--muted)]">{item.detail}</div> : null}
               </div>
-              {item.odds ? <div className="shrink-0 text-[12px] font-bold tabular-nums text-slate-900">{item.odds}</div> : null}
+              {item.odds ? <div className="shrink-0 text-[12px] font-bold tabular-nums text-[var(--text)]">{item.odds}</div> : null}
             </div>
           ))}
         </div>
@@ -170,10 +170,10 @@ export function ToolResultCard({ card, flush = false }: Props) {
         <div className="result-card__list">
           {card.checks.map((check) => (
             <div key={check.label} className="result-card__check">
-              <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${check.ok ? 'bg-emerald-500' : 'bg-red-500'}`} />
+              <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${check.ok ? 'bg-[var(--ok)]' : 'bg-[var(--danger)]'}`} />
               <div className="min-w-0">
-                <div className="text-[12px] font-semibold text-slate-800">{check.label}</div>
-                {check.detail ? <div className="text-[11px] text-slate-500">{check.detail}</div> : null}
+                <div className="text-[12px] font-semibold text-[var(--text)]">{check.label}</div>
+                {check.detail ? <div className="text-[11px] text-[var(--muted)]">{check.detail}</div> : null}
               </div>
             </div>
           ))}
@@ -189,8 +189,8 @@ export function ToolResultCard({ card, flush = false }: Props) {
         <div className="result-card__list">
           {card.items.map((item) => (
             <div key={item.label} className="result-card__row">
-              <span className="font-semibold text-slate-800">{item.label}</span>
-              <span className="tabular-nums text-slate-600">{item.value}</span>
+              <span className="font-semibold text-[var(--text)]">{item.label}</span>
+              <span className="tabular-nums text-[var(--text-2)]">{item.value}</span>
             </div>
           ))}
         </div>
