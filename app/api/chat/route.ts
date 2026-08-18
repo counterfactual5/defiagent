@@ -359,8 +359,8 @@ export async function POST(req: Request) {
         })
       );
 
-      for (const [index, { result }] of toolResults.entries()) {
-        conversation.push({ role: 'tool', tool_call_id: toolCalls[index].id, content: result });
+      for (let index = 0; index < toolResults.length; index += 1) {
+        conversation.push({ role: 'tool', tool_call_id: toolCalls[index].id, content: toolResults[index].result });
       }
 
       conversation.push({

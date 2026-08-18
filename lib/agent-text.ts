@@ -67,7 +67,8 @@ export function messageText(message: { content?: unknown } | null | undefined): 
 export function collectToolCalls(message: any): ParsedToolCall[] {
   const native = Array.isArray(message?.tool_calls) ? message.tool_calls : [];
   const calls: ParsedToolCall[] = [];
-  for (const [index, call] of native.entries()) {
+  for (let index = 0; index < native.length; index += 1) {
+    const call = native[index];
     const name = String(call?.function?.name || call?.name || '').trim();
     if (!name) continue;
     const args = call?.function?.arguments ?? call?.arguments ?? '{}';
@@ -85,6 +86,8 @@ export function collectToolCalls(message: any): ParsedToolCall[] {
 }
 
 export function displayableText(raw: string): string {
+  if (!raw) return '';
+  if (parseDsmlToolCalls(raw).length > 0) return '';
   return stripInternalToolSyntax(raw).trim();
 }
 

@@ -9,7 +9,6 @@ import {
   fallbackBriefing,
   parseDsmlToolCalls,
   showRailResultCards,
-  stripInternalToolSyntax,
 } from './agent-text.ts';
 
 const root = dirname(fileURLToPath(import.meta.url));
@@ -31,7 +30,7 @@ describe('DSML and displayable text', () => {
   it('strips DSML so a tool-only message is not displayable', () => {
     const raw = `<｜DSML｜invoke name="uniswap_quote_plan"><｜DSML｜parameter name="token_in">ETH</｜DSML｜parameter></｜DSML｜invoke>`;
     assert.equal(displayableText(raw), '');
-    assert.equal(stripInternalToolSyntax(raw), '');
+    assert.ok(parseDsmlToolCalls(raw).length === 1);
   });
 
   it('collects native OpenAI tool_calls first', () => {
