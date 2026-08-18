@@ -1,4 +1,10 @@
 import OpenAI from 'openai';
+import {
+  collectToolCalls,
+  displayableText,
+  fallbackBriefing,
+  messageText,
+} from '@/lib/agent-text';
 import { buildToolCard } from '@/lib/tool-cards';
 import { executeTool } from '@/lib/execute-tool';
 import { toolLabel, toolSource } from '@/lib/tool-meta';
@@ -218,38 +224,6 @@ const TOOL_DEFINITIONS = [
   },
 ];
 
-function parseValue(value: string, stringFlag?: string): unknown {
-  const clean = value.trim();
-  if (stringFlag === 'true') return clean;
-  if (/^-?\d+(\.\d+)?$/.test(clean)) return Number(clean);
-  if (clean === 'true') return true;
-  if (clean === 'false') return false;
-  return clean;
-}
-
-function parseDsmlToolCalls(content: string): any[] {
-  if (!content || !/[<]?[｜|]\s*DSML\s*[｜|]/i.test(content)) return [];
-  const calls: any[] = [];
-  const invokeRe = /<[｜|]\s*DSML\s*[｜|]\s*invoke\s+name=["']([^"']+)["'][^>]*>([\s\S]*?)<\/[｜|]\s*DSML\s*[｜|]\s*invoke\s*>/gi;
-  let invoke: RegExpExecArray | null;
-  while ((invoke = invokeRe.exec(content))) {
-    const args: Record<string, unknown> = {};
-    const paramRe = /<[｜|]\s*DSML\s*[｜|]\s*parameter\s+name=["']([^"']+)["'](?:\s+string=["']([^"']+)["'])?[^>]*>([\s\S]*?)<\/[｜|]\s*DSML\s*[｜|]\s*parameter\s*>/gi;
-    let param: RegExpExecArray | null;
-    while ((param = paramRe.exec(invoke[2]))) args[param[1]] = parseValue(param[3], param[2]);
-    calls.push({ id: `dsml_${calls.length}_${Date.now()}`, type: 'function', function: { name: invoke[1], arguments: JSON.stringify(args) } });
-  }
-  return calls;
-}
-
-function stripInternalToolSyntax(text: string): string {
-  return text
-    .replace(/<[｜|]\s*DSML\s*[｜|]\s*tool_calls\s*>[\s\S]*?<\/[｜|]\s*DSML\s*[｜|]\s*tool_calls\s*>/gi, '')
-    .replace(/<[｜|]\s*DSML\s*[｜|][^>]*>/gi, '')
-    .replace(/<\/[｜|]\s*DSML\s*[｜|][^>]*>/gi, '')
-    .trim();
-}
-
 function jsonError(message: string, status = 500) {
   return new Response(JSON.stringify({ error: message }), { status, headers: { 'Content-Type': 'application/json' } });
 }
@@ -306,19 +280,36 @@ export async function POST(req: Request) {
     const openai = new OpenAI({ apiKey, baseURL });
     const baseMessages: any[] = [{ role: 'system', content: SYSTEM_PROMPT }, ...messages];
 
+    const complete = async (messages: any[], toolChoice: 'auto' | 'none') => {
+      const payload: any = { model, stream: false, messages };
+      if (toolChoice === 'auto') {
+        payload.tools = TOOL_DEFINITIONS;
+        payload.tool_choice = 'auto';
+      } else {
+        // Force a written answer. Some gateways reject tool_choice=none; fall back to no tools.
+        try {
+          return await openai.chat.completions.create({
+            ...payload,
+            tools: TOOL_DEFINITIONS,
+            tool_choice: 'none',
+          } as any);
+        } catch {
+          return openai.chat.completions.create(payload as any);
+        }
+      }
+      return openai.chat.completions.create(payload as any);
+    };
+
     const stream = agentDataStream(async ({ sendData, sendText }) => {
       sendData({ type: 'phase', phase: 'routing', label: 'Routing intent' });
 
-      const first: any = await openai.chat.completions.create({
-        model, stream: false, messages: baseMessages, tools: TOOL_DEFINITIONS as any, tool_choice: 'auto',
-      } as any);
+      const first: any = await complete(baseMessages, 'auto');
       const firstMsg: any = first.choices?.[0]?.message || {};
-      let toolCalls: any[] = firstMsg.tool_calls || [];
-      if (toolCalls.length === 0) toolCalls = parseDsmlToolCalls(String(firstMsg.content || ''));
+      const toolCalls = collectToolCalls(firstMsg);
 
       if (toolCalls.length === 0) {
         sendData({ type: 'phase', phase: 'answer', label: 'Writing answer' });
-        const text = stripInternalToolSyntax(String(firstMsg.content || '')) || 'The model returned no displayable response.';
+        const text = displayableText(messageText(firstMsg)) || 'The model returned no displayable response.';
         for await (const chunk of chunkText(text)) sendText(chunk);
         return;
       }
@@ -328,7 +319,6 @@ export async function POST(req: Request) {
       const assistantToolMessage = { role: 'assistant', content: null, tool_calls: toolCalls };
       const conversation: any[] = [...baseMessages, assistantToolMessage];
 
-      // Mark all tools running immediately for faster UI feedback, then execute in parallel.
       for (const call of toolCalls) {
         const name = String(call.function?.name || 'tool');
         sendData({
@@ -365,12 +355,12 @@ export async function POST(req: Request) {
             card,
             args: toolArgs,
           });
-          return { call, result };
+          return { name, result };
         })
       );
 
-      for (const { call, result } of toolResults) {
-        conversation.push({ role: 'tool', tool_call_id: call.id, content: result });
+      for (const [index, { result }] of toolResults.entries()) {
+        conversation.push({ role: 'tool', tool_call_id: toolCalls[index].id, content: result });
       }
 
       conversation.push({
@@ -379,29 +369,12 @@ export async function POST(req: Request) {
       });
 
       sendData({ type: 'phase', phase: 'synthesize', label: 'Synthesizing answer' });
-      const response = await openai.chat.completions.create({ model, stream: true, messages: conversation } as any);
+      const second: any = await complete(conversation, 'none');
+      const secondMsg: any = second.choices?.[0]?.message || {};
+      const text = displayableText(messageText(secondMsg)) || fallbackBriefing(toolResults);
 
-      let sawText = false;
-      let raw = '';
-      for await (const chunk of response as any) {
-        const delta = chunk?.choices?.[0]?.delta?.content || '';
-        if (!delta) continue;
-        raw += delta;
-        if (!sawText) {
-          sawText = true;
-          sendData({ type: 'phase', phase: 'answer', label: 'Streaming answer' });
-        }
-        // Second-pass answers should not include DSML; stream live for first-token latency.
-        sendText(delta);
-      }
-
-      if (!sawText) {
-        const clean = stripInternalToolSyntax(raw) || 'The model returned no displayable response.';
-        for await (const piece of chunkText(clean)) sendText(piece);
-      } else if (/[<]?[｜|]\s*DSML\s*[｜|]/i.test(raw)) {
-        // Rare: if model still emitted tool syntax, replace stream is already out —
-        // client sees it; we still finish normally.
-      }
+      sendData({ type: 'phase', phase: 'answer', label: 'Streaming answer' });
+      for await (const chunk of chunkText(text)) sendText(chunk);
     });
 
     return new Response(stream, {

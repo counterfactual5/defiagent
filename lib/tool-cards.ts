@@ -51,7 +51,7 @@ export type ToolCard =
   | {
       kind: 'markets';
       title: string;
-      items: { name: string; detail?: string; odds?: string }[];
+      items: { name: string; detail?: string; odds?: string; href?: string }[];
     }
   | {
       kind: 'doctor';
@@ -267,18 +267,23 @@ export function buildToolCard(name: string, raw: string): ToolCard | null {
   if (name === 'polymarket_search') {
     const d = data;
     const events = asList(pick(d, 'events') || []);
-    const items: { name: string; detail?: string; odds?: string }[] = [];
+    const items: { name: string; detail?: string; odds?: string; href?: string }[] = [];
+    const eventHref = (slug?: string) => (slug ? `https://polymarket.com/event/${slug}` : undefined);
+    const marketHref = (slug?: string) => (slug ? `https://polymarket.com/market/${slug}` : undefined);
     for (const ev of events.slice(0, 5)) {
+      const slug = str(ev?.slug);
       items.push({
         name: str(ev?.title || ev?.ticker || ev?.slug) || 'Event',
         detail: str(ev?.slug || ev?.id),
         odds: ev?.volume24hr != null ? `24h vol ${Number(ev.volume24hr).toLocaleString()}` : str(ev?.volume),
+        href: eventHref(slug),
       });
       for (const m of asList(ev?.markets).slice(0, 2)) {
         items.push({
           name: str(m?.question || m?.slug) || 'Market',
           detail: str(m?.slug || m?.id),
           odds: str(m?.outcomePrices?.[0] ?? m?.lastTradePrice ?? m?.bestBid),
+          href: marketHref(str(m?.slug)) || eventHref(slug),
         });
       }
     }
@@ -289,6 +294,7 @@ export function buildToolCard(name: string, raw: string): ToolCard | null {
           name: str(m?.question || m?.title || m?.name || m?.slug) || 'Market',
           detail: str(m?.slug || m?.id),
           odds: str(m?.outcomePrices?.[0] ?? m?.yes_price ?? m?.probability),
+          href: marketHref(str(m?.slug)),
         });
       }
     }

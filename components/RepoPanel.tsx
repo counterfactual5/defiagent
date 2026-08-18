@@ -209,16 +209,7 @@ export function RepoPanel({
           return (
             <div
               key={repo.name}
-              role="button"
-              tabIndex={0}
-              onClick={() => onInvoke(repo.demoPrompt, { label: repo.name })}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault();
-                  onInvoke(repo.demoPrompt, { label: repo.name });
-                }
-              }}
-              className="group cursor-pointer rounded-xl border border-slate-200/80 bg-white/55 p-3 transition hover:border-blue-300 hover:bg-white hover:shadow-[0_4px_14px_rgba(37,99,235,0.08)]"
+              className="rounded-xl border border-slate-200/80 bg-white/55 p-3 transition hover:border-blue-300 hover:bg-white hover:shadow-[0_4px_14px_rgba(37,99,235,0.08)]"
             >
               <div className="mb-1 flex items-center justify-between gap-2">
                 <span className="text-[13px] font-semibold text-slate-800">{repo.name}</span>
@@ -227,8 +218,14 @@ export function RepoPanel({
                 </span>
               </div>
               <p className="mb-2 line-clamp-2 text-[11px] leading-relaxed text-slate-500">{repo.desc}</p>
-              <div className="flex items-center justify-between text-[10px] font-medium text-slate-400">
-                <span className="text-blue-600/80 transition group-hover:text-blue-700">Run now →</span>
+              <div className="flex items-center justify-between gap-2 text-[10px] font-medium text-slate-400">
+                <button
+                  type="button"
+                  onClick={() => onInvoke(repo.demoPrompt, { label: repo.name })}
+                  className="min-h-11 rounded-md px-1 text-left text-blue-600/90 transition hover:text-blue-700"
+                >
+                  Run now →
+                </button>
                 <div className="flex items-center gap-2.5">
                   <span className="flex items-center gap-1 text-slate-500">
                     <Star className="h-3 w-3" />
@@ -242,11 +239,12 @@ export function RepoPanel({
                     href={repo.url}
                     target="_blank"
                     rel="noreferrer"
-                    onClick={(e) => e.stopPropagation()}
-                    className="flex items-center gap-1 hover:text-slate-700"
+                    className="inline-flex min-h-11 items-center gap-1 rounded-md px-1.5 text-slate-600 hover:text-slate-800"
+                    aria-label={`Open ${repo.name} on GitHub`}
                   >
-                    <Github className="h-3 w-3" />
-                    <ExternalLink className="h-3 w-3 opacity-0 transition group-hover:opacity-100" />
+                    <Github className="h-3.5 w-3.5" />
+                    <span>Open</span>
+                    <ExternalLink className="h-3 w-3" />
                   </a>
                 </div>
               </div>

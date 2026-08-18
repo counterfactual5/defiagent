@@ -81,8 +81,14 @@ export function ToolResultCard({ card, flush = false }: Props) {
             {card.description ? <p className="result-card__note">{card.description}</p> : null}
           </div>
           {card.url ? (
-            <a href={card.url} target="_blank" rel="noreferrer" className="result-card__icon-link" aria-label="Open repository">
-              <ExternalLink className="h-4 w-4" />
+            <a
+              href={card.url}
+              target="_blank"
+              rel="noreferrer"
+              className="result-card__cta relative z-10 !mt-0 shrink-0"
+              aria-label="Open repository"
+            >
+              Open repo <ExternalLink className="h-4 w-4" />
             </a>
           ) : null}
         </div>
@@ -120,7 +126,12 @@ export function ToolResultCard({ card, flush = false }: Props) {
         </div>
         {card.note ? <p className="result-card__note">{card.note}</p> : null}
         {card.deepLink ? (
-          <a href={card.deepLink} target="_blank" rel="noreferrer" className="result-card__cta">
+          <a
+            href={card.deepLink}
+            target="_blank"
+            rel="noreferrer"
+            className="result-card__cta relative z-10"
+          >
             Open in Uniswap <ExternalLink className="h-3.5 w-3.5" />
           </a>
         ) : null}
@@ -152,7 +163,18 @@ export function ToolResultCard({ card, flush = false }: Props) {
           {card.items.map((item, i) => (
             <div key={`${item.name}-${i}`} className="result-card__row">
               <div className="min-w-0">
-                <div className="truncate text-[12px] font-semibold text-slate-800">{item.name}</div>
+                {item.href ? (
+                  <a
+                    href={item.href}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="result-card__inline-link"
+                  >
+                    {item.name}
+                  </a>
+                ) : (
+                  <div className="truncate text-[12px] font-semibold text-slate-800">{item.name}</div>
+                )}
                 {item.detail ? <div className="truncate text-[10px] text-slate-500">{item.detail}</div> : null}
               </div>
               {item.odds ? <div className="shrink-0 text-[12px] font-bold tabular-nums text-slate-900">{item.odds}</div> : null}
@@ -204,7 +226,7 @@ export function ToolResultCard({ card, flush = false }: Props) {
       <div className="result-card__title">{card.title}</div>
       <p className="result-card__note mt-1">{card.summary}</p>
       {card.link ? (
-        <a href={card.link} target="_blank" rel="noreferrer" className="result-card__cta mt-2">
+        <a href={card.link} target="_blank" rel="noreferrer" className="result-card__cta relative z-10 mt-2">
           Open link <ExternalLink className="h-3.5 w-3.5" />
         </a>
       ) : null}

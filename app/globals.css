@@ -138,6 +138,9 @@ body {
   text-decoration-color: rgba(29, 78, 216, 0.3);
   text-underline-offset: 3px;
   text-decoration-thickness: 1px;
+  pointer-events: auto;
+  position: relative;
+  z-index: 1;
 }
 
 .md-a:hover {
@@ -393,12 +396,34 @@ body {
   align-items: center;
   gap: 0.35rem;
   margin-top: 0.65rem;
+  min-height: 44px;
+  padding: 0 0.15rem;
   font-size: 12px;
   font-weight: 650;
   color: #1d4ed8;
+  pointer-events: auto;
+  touch-action: manipulation;
 }
 
 .result-card__cta:hover {
+  color: #7c3aed;
+}
+
+.result-card__inline-link {
+  display: block;
+  min-height: 36px;
+  padding: 0.35rem 0;
+  font-size: 12px;
+  font-weight: 650;
+  color: #1d4ed8;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  pointer-events: auto;
+  touch-action: manipulation;
+}
+
+.result-card__inline-link:hover {
   color: #7c3aed;
 }
 
