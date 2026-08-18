@@ -71,19 +71,19 @@ export function RepoPanel({
             type="button"
             title={tool.label}
             onClick={() => onInvoke(tool.sample, { label: tool.label })}
-            className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200/80 bg-white/70 text-blue-600 transition hover:border-blue-300 hover:bg-white"
+            className="ui-icon-btn !h-10 !w-10 text-[var(--accent)]"
           >
             <Wrench className="h-4 w-4" />
           </button>
         ))}
-        <div className="my-1 h-px w-6 bg-slate-200" />
+        <div className="my-1 h-px w-6 bg-[var(--border)]" />
         {REPOS.slice(0, 4).map((repo) => (
           <button
             key={repo.name}
             type="button"
             title={repo.name}
             onClick={() => onInvoke(repo.demoPrompt, { label: repo.name })}
-            className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200/80 bg-white/70 text-[10px] font-bold uppercase text-slate-600 transition hover:border-blue-300 hover:bg-white"
+            className="ui-icon-btn !h-10 !w-10 text-[10px] font-bold uppercase"
           >
             {repo.name.slice(0, 2)}
           </button>
@@ -94,12 +94,12 @@ export function RepoPanel({
 
   return (
     <div className="glass-panel flex h-full flex-col overflow-hidden">
-      <div className="border-b border-slate-200/70 bg-gradient-to-r from-blue-500/8 via-transparent to-violet-500/8 px-4 py-3.5">
-        <div className="mb-1 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-500">
-          <Zap className="h-3.5 w-3.5 text-blue-600" />
+      <div className="rail-head">
+        <div className="ui-kicker mb-1 flex items-center gap-2">
+          <Zap className="h-3.5 w-3.5 text-[var(--accent)]" />
           Built-in Live Tools
         </div>
-        <p className="text-[11px] leading-relaxed text-slate-500">
+        <p className="text-[11px] leading-relaxed text-[var(--muted)]">
           Click to run immediately. If the composer already has a draft, the prompt is armed as a chip instead.
         </p>
       </div>
@@ -110,22 +110,22 @@ export function RepoPanel({
             key={tool.name}
             type="button"
             onClick={() => onInvoke(tool.sample, { label: tool.label })}
-            className="rounded-xl border border-slate-200/80 bg-white/60 p-2.5 text-left transition hover:border-blue-300 hover:bg-white hover:shadow-[0_4px_14px_rgba(37,99,235,0.08)]"
+            className="rail-card p-2.5 text-left"
           >
             <div className="mb-0.5 flex items-center gap-1.5">
-              <Wrench className="h-3 w-3 text-blue-600/80" />
-              <span className="text-xs font-semibold text-slate-800">{tool.label}</span>
+              <Wrench className="h-3 w-3 text-[var(--accent)]" />
+              <span className="text-xs font-semibold text-[var(--text)]">{tool.label}</span>
             </div>
-            <p className="text-[10px] text-slate-500">{tool.source}</p>
+            <p className="text-[10px] text-[var(--muted)]">{tool.source}</p>
           </button>
         ))}
       </div>
 
       {(lastTools.length > 0 || promptHistory.length > 0) && (
-        <div className="border-t border-slate-200/70 px-3 py-3">
+        <div className="border-t border-[var(--border)] px-3 py-3">
           {lastTools.length > 0 && (
             <div className="mb-3">
-              <div className="mb-2 flex items-center gap-2 px-1 text-[10px] font-bold uppercase tracking-wider text-slate-500">
+              <div className="ui-kicker mb-2 flex items-center gap-2 px-1">
                 <Clock3 className="h-3 w-3" />
                 Last tool results
               </div>
@@ -137,13 +137,13 @@ export function RepoPanel({
                   return (
                     <div
                       key={`${turnId}-${key}`}
-                      className="flex items-center justify-between gap-2 rounded-lg border border-slate-200/70 bg-white/70 px-2.5 py-2"
+                      className="rail-card flex items-center justify-between gap-2 px-2.5 py-2"
                     >
                       <div className="min-w-0">
-                        <div className="truncate text-[11px] font-semibold text-slate-800">
+                        <div className="truncate text-[11px] font-semibold text-[var(--text)]">
                           {tool.label || tool.name}
                         </div>
-                        <div className="truncate text-[10px] text-slate-500">
+                        <div className="truncate text-[10px] text-[var(--muted)]">
                           {[tool.status, tool.source, fresh].filter(Boolean).join(' · ')}
                         </div>
                       </div>
@@ -152,7 +152,7 @@ export function RepoPanel({
                           type="button"
                           disabled={busy}
                           onClick={() => onRetryTool(turnId, tool)}
-                          className="inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-[10px] font-semibold text-slate-600 transition hover:bg-slate-100 disabled:opacity-50"
+                          className="inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-[10px] font-semibold text-[var(--muted)] transition hover:bg-[var(--bg-subtle)] disabled:opacity-50"
                         >
                           <RotateCcw className={`h-3 w-3 ${busy ? 'animate-spin' : ''}`} />
                           Retry
@@ -167,7 +167,7 @@ export function RepoPanel({
 
           {promptHistory.length > 0 && (
             <div>
-              <div className="mb-2 flex items-center gap-2 px-1 text-[10px] font-bold uppercase tracking-wider text-slate-500">
+              <div className="ui-kicker mb-2 flex items-center gap-2 px-1">
                 <History className="h-3 w-3" />
                 Recent prompts
               </div>
@@ -177,13 +177,13 @@ export function RepoPanel({
                     key={`${item.at}-${item.prompt.slice(0, 24)}`}
                     type="button"
                     onClick={() => onInvoke(item.prompt, { label: item.label || 'Recent' })}
-                    className="block w-full rounded-lg border border-transparent px-2.5 py-1.5 text-left transition hover:border-slate-200 hover:bg-white"
+                    className="block w-full rounded-lg border border-transparent px-2.5 py-1.5 text-left transition hover:border-[var(--border)] hover:bg-[var(--surface)]"
                   >
-                    <div className="truncate text-[11px] font-medium text-slate-700">
+                    <div className="truncate text-[11px] font-medium text-[var(--text-2)]">
                       {item.label || item.prompt}
                     </div>
                     {item.label ? (
-                      <div className="truncate text-[10px] text-slate-400">{item.prompt}</div>
+                      <div className="truncate text-[10px] text-[var(--faint)]">{item.prompt}</div>
                     ) : null}
                   </button>
                 ))}
@@ -193,12 +193,12 @@ export function RepoPanel({
         </div>
       )}
 
-      <div className="border-t border-slate-200/70 px-4 py-3">
-        <div className="mb-1 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-500">
+      <div className="rail-head">
+        <div className="ui-kicker mb-1 flex items-center gap-2">
           <Code2 className="h-3.5 w-3.5" />
           GitHub Projects
         </div>
-        <p className="text-[11px] leading-relaxed text-slate-500">
+        <p className="text-[11px] leading-relaxed text-[var(--muted)]">
           Open-source DeFi & agent suite — one click sends a demo brief; live stars from GitHub.
         </p>
       </div>
@@ -218,23 +218,21 @@ export function RepoPanel({
                   onInvoke(repo.demoPrompt, { label: repo.name });
                 }
               }}
-              className="group cursor-pointer rounded-xl border border-slate-200/80 bg-white/55 p-3 transition hover:border-blue-300 hover:bg-white hover:shadow-[0_4px_14px_rgba(37,99,235,0.08)]"
+              className="rail-card group cursor-pointer p-3"
             >
               <div className="mb-1 flex items-center justify-between gap-2">
-                <span className="text-[13px] font-semibold text-slate-800">{repo.name}</span>
-                <span className="shrink-0 rounded-md bg-slate-100 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-slate-500">
-                  {repo.badge}
-                </span>
+                <span className="text-[13px] font-semibold text-[var(--text)]">{repo.name}</span>
+                <span className="ui-chip">{repo.badge}</span>
               </div>
-              <p className="mb-2 line-clamp-2 text-[11px] leading-relaxed text-slate-500">{repo.desc}</p>
-              <div className="flex items-center justify-between text-[10px] font-medium text-slate-400">
-                <span className="text-blue-600/80 transition group-hover:text-blue-700">Run now →</span>
+              <p className="mb-2 line-clamp-2 text-[11px] leading-relaxed text-[var(--muted)]">{repo.desc}</p>
+              <div className="flex items-center justify-between text-[10px] font-medium text-[var(--faint)]">
+                <span className="text-[var(--accent)]">Run now →</span>
                 <div className="flex items-center gap-2.5">
-                  <span className="flex items-center gap-1 text-slate-500">
+                  <span className="flex items-center gap-1 text-[var(--muted)]">
                     <Star className="h-3 w-3" />
                     {s?.stars ?? '—'}
                   </span>
-                  <span className="flex items-center gap-1 text-slate-500">
+                  <span className="flex items-center gap-1 text-[var(--muted)]">
                     <GitFork className="h-3 w-3" />
                     {s?.forks ?? '—'}
                   </span>
@@ -243,14 +241,14 @@ export function RepoPanel({
                     target="_blank"
                     rel="noreferrer"
                     onClick={(e) => e.stopPropagation()}
-                    className="flex items-center gap-1 hover:text-slate-700"
+                    className="flex items-center gap-1 hover:text-[var(--text)]"
                   >
                     <Github className="h-3 w-3" />
                     <ExternalLink className="h-3 w-3 opacity-0 transition group-hover:opacity-100" />
                   </a>
                 </div>
               </div>
-              <p className="mt-1.5 text-[10px] text-slate-400">{repo.tag}</p>
+              <p className="mt-1.5 text-[10px] text-[var(--faint)]">{repo.tag}</p>
             </div>
           );
         })}
