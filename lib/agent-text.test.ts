@@ -7,6 +7,7 @@ import {
   collectToolCalls,
   displayableText,
   fallbackBriefing,
+  looksLikeToolSyntax,
   parseDsmlToolCalls,
   showRailResultCards,
 } from './agent-text.ts';
@@ -25,6 +26,11 @@ describe('DSML and displayable text', () => {
     assert.equal(calls.length, 1);
     assert.equal(calls[0].function.name, 'get_gas_price');
     assert.equal(JSON.parse(calls[0].function.arguments).chain, 'ethereum');
+  });
+
+  it('does not treat a Finding as tool syntax', () => {
+    assert.equal(looksLikeToolSyntax('**Finding:** Ethereum gas is cheap enough to transact.'), false);
+    assert.equal(looksLikeToolSyntax('<｜DSML｜invoke name="get_gas_price">'), true);
   });
 
   it('strips DSML so a tool-only message is not displayable', () => {
@@ -52,8 +58,16 @@ describe('fallback briefing', () => {
   it('keeps the Uniswap deep link tappable in markdown', () => {
     const md = fallbackBriefing([{ name: 'uniswap_quote_plan', result: fixture('uniswap_quote_plan') }]);
     assert.match(md, /\*\*Finding:\*\*/);
-    assert.match(md, /Open in Uniswap/);
+    assert.match(md, /is ready/);
+    assert.doesNotMatch(md, /did not write/);
     assert.match(md, /app\.uniswap\.org/);
+  });
+
+  it('writes a real gas finding instead of a silent tool dump', () => {
+    const md = fallbackBriefing([{ name: 'get_gas_price', result: fixture('get_gas_price') }]);
+    assert.match(md, /\*\*Finding:\*\*/);
+    assert.match(md, /gwei/i);
+    assert.doesNotMatch(md, /did not write/);
   });
 
   it('summarizes failed tools instead of going silent', () => {

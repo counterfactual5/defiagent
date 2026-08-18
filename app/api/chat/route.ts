@@ -3,6 +3,7 @@ import {
   collectToolCalls,
   displayableText,
   fallbackBriefing,
+  looksLikeToolSyntax,
   messageText,
 } from '@/lib/agent-text';
 import { buildToolCard } from '@/lib/tool-cards';
@@ -285,19 +286,37 @@ export async function POST(req: Request) {
       if (toolChoice === 'auto') {
         payload.tools = TOOL_DEFINITIONS;
         payload.tool_choice = 'auto';
-      } else {
-        // Force a written answer. Some gateways reject tool_choice=none; fall back to no tools.
-        try {
-          return await openai.chat.completions.create({
-            ...payload,
-            tools: TOOL_DEFINITIONS,
-            tool_choice: 'none',
-          } as any);
-        } catch {
-          return openai.chat.completions.create(payload as any);
-        }
       }
       return openai.chat.completions.create(payload as any);
+    };
+
+    const streamModelBriefing = async (
+      conversation: any[],
+      sendData: (p: Record<string, unknown>) => void,
+      sendText: (c: string) => void,
+    ): Promise<string> => {
+      sendData({ type: 'phase', phase: 'synthesize', label: 'Writing finding' });
+      const response: any = await openai.chat.completions.create({
+        model, stream: true, messages: conversation,
+      } as any);
+
+      let raw = '';
+      let released = false;
+      for await (const chunk of response) {
+        const delta = chunk?.choices?.[0]?.delta?.content || '';
+        if (!delta) continue;
+        raw += delta;
+        if (looksLikeToolSyntax(raw)) continue;
+        if (!released) {
+          if (raw.trim().length < 12) continue;
+          released = true;
+          sendData({ type: 'phase', phase: 'answer', label: 'Streaming answer' });
+          sendText(raw);
+          continue;
+        }
+        sendText(delta);
+      }
+      return displayableText(raw);
     };
 
     const stream = agentDataStream(async ({ sendData, sendText }) => {
@@ -316,7 +335,11 @@ export async function POST(req: Request) {
 
       sendData({ type: 'phase', phase: 'tools', label: `Running ${toolCalls.length} tool${toolCalls.length > 1 ? 's' : ''}` });
 
-      const assistantToolMessage = { role: 'assistant', content: null, tool_calls: toolCalls };
+      const assistantToolMessage = {
+        role: 'assistant',
+        content: displayableText(messageText(firstMsg)) || '',
+        tool_calls: toolCalls,
+      };
       const conversation: any[] = [...baseMessages, assistantToolMessage];
 
       for (const call of toolCalls) {
@@ -364,17 +387,20 @@ export async function POST(req: Request) {
       }
 
       conversation.push({
-        role: 'system',
+        role: 'user',
         content: POST_TOOL_SYSTEM,
       });
 
-      sendData({ type: 'phase', phase: 'synthesize', label: 'Synthesizing answer' });
-      const second: any = await complete(conversation, 'none');
-      const secondMsg: any = second.choices?.[0]?.message || {};
-      const text = displayableText(messageText(secondMsg)) || fallbackBriefing(toolResults);
-
-      sendData({ type: 'phase', phase: 'answer', label: 'Streaming answer' });
-      for await (const chunk of chunkText(text)) sendText(chunk);
+      let written = '';
+      try {
+        written = await streamModelBriefing(conversation, sendData, sendText);
+      } catch {
+        written = '';
+      }
+      if (!written) {
+        sendData({ type: 'phase', phase: 'answer', label: 'Streaming answer' });
+        for await (const chunk of chunkText(fallbackBriefing(toolResults))) sendText(chunk);
+      }
     });
 
     return new Response(stream, {
