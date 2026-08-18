@@ -31,7 +31,8 @@ Briefing format (always):
 4. Prefer compact GFM tables for 3+ comparable numbers; otherwise use bullets.
 5. Keep the whole answer tight — usually under ~180 words unless the user asked for detail.
 6. No preamble ("Sure!", "Here's…"), no repeating the query, no fake confidence intervals.
-7. After tools return, you MUST write the briefing. Never end a turn on another tool call.`;
+7. After tools return, you MUST write the briefing. Never end a turn on another tool call.
+8. Do not call the same tool repeatedly with only speed/limit tweaks — one call returns the full snapshot.`;
 
 export const POST_TOOL_SYSTEM = `Tool execution is complete. You MUST now write the user-visible briefing from the supplied tool results.
 

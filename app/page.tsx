@@ -121,6 +121,7 @@ function AgentConsole({ boot }: { boot: SessionSnapshot | null }) {
     setData,
   } = useChat({
     api: '/api/chat',
+    streamProtocol: 'data',
     initialMessages: boot?.messages || [],
     body: { model: selectedModel },
     onError: (err) => setError(err.message || 'Chat request failed'),
@@ -576,8 +577,19 @@ function AgentConsole({ boot }: { boot: SessionSnapshot | null }) {
                             ) : null}
                           </div>
                           <div className={`finding-panel px-5 py-4 ${streamingFinding ? 'finding-panel--live' : ''}`}>
+                            <div className={streamingFinding && !m.content ? 'min-h-[1.25rem]' : undefined}>
+                              {m.content ? (
+                                <Markdown>{m.content}</Markdown>
+                              ) : streamingFinding ? (
+                                <Markdown>_Writing finding…_</Markdown>
+                              ) : (
+                                <p className="text-sm text-[var(--muted)]">
+                                  No written finding — use the receipts below. Deep links stay tappable.
+                                </p>
+                              )}
+                            </div>
                             {highlightCards.length > 0 ? (
-                              <div className={`finding-tools ${streamingFinding ? 'finding-tools--pinned' : ''}`}>
+                              <div className={`finding-tools finding-tools--after ${streamingFinding ? 'finding-tools--pinned' : ''}`}>
                                 {highlightCards.map((t) => {
                                   const fresh = formatFetchedAt(t.completedAt);
                                   return (
@@ -594,17 +606,6 @@ function AgentConsole({ boot }: { boot: SessionSnapshot | null }) {
                                 })}
                               </div>
                             ) : null}
-                            <div className={streamingFinding && !m.content ? 'min-h-[1.25rem]' : undefined}>
-                              {m.content ? (
-                                <Markdown>{m.content}</Markdown>
-                              ) : streamingFinding ? (
-                                <Markdown>_Synthesizing…_</Markdown>
-                              ) : (
-                                <p className="text-sm text-[var(--muted)]">
-                                  No written finding — use the receipts above. Deep links stay tappable.
-                                </p>
-                              )}
-                            </div>
                           </div>
                         </div>
                       );

@@ -52,8 +52,16 @@ describe('fallback briefing', () => {
   it('keeps the Uniswap deep link tappable in markdown', () => {
     const md = fallbackBriefing([{ name: 'uniswap_quote_plan', result: fixture('uniswap_quote_plan') }]);
     assert.match(md, /\*\*Finding:\*\*/);
-    assert.match(md, /Open in Uniswap/);
+    assert.match(md, /is ready/);
+    assert.doesNotMatch(md, /did not write/);
     assert.match(md, /app\.uniswap\.org/);
+  });
+
+  it('writes a real gas finding instead of a silent tool dump', () => {
+    const md = fallbackBriefing([{ name: 'get_gas_price', result: fixture('get_gas_price') }]);
+    assert.match(md, /\*\*Finding:\*\*/);
+    assert.match(md, /gwei/i);
+    assert.doesNotMatch(md, /did not write/);
   });
 
   it('summarizes failed tools instead of going silent', () => {

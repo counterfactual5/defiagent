@@ -285,19 +285,13 @@ export async function POST(req: Request) {
       if (toolChoice === 'auto') {
         payload.tools = TOOL_DEFINITIONS;
         payload.tool_choice = 'auto';
-      } else {
-        // Force a written answer. Some gateways reject tool_choice=none; fall back to no tools.
-        try {
-          return await openai.chat.completions.create({
-            ...payload,
-            tools: TOOL_DEFINITIONS,
-            tool_choice: 'none',
-          } as any);
-        } catch {
-          return openai.chat.completions.create(payload as any);
-        }
       }
       return openai.chat.completions.create(payload as any);
+    };
+
+    const streamAnswer = async (sendData: (p: Record<string, unknown>) => void, sendText: (c: string) => void, text: string) => {
+      sendData({ type: 'phase', phase: 'answer', label: 'Streaming answer' });
+      for await (const chunk of chunkText(text)) sendText(chunk);
     };
 
     const stream = agentDataStream(async ({ sendData, sendText }) => {
@@ -308,15 +302,18 @@ export async function POST(req: Request) {
       const toolCalls = collectToolCalls(firstMsg);
 
       if (toolCalls.length === 0) {
-        sendData({ type: 'phase', phase: 'answer', label: 'Writing answer' });
         const text = displayableText(messageText(firstMsg)) || 'The model returned no displayable response.';
-        for await (const chunk of chunkText(text)) sendText(chunk);
+        await streamAnswer(sendData, sendText, text);
         return;
       }
 
       sendData({ type: 'phase', phase: 'tools', label: `Running ${toolCalls.length} tool${toolCalls.length > 1 ? 's' : ''}` });
 
-      const assistantToolMessage = { role: 'assistant', content: null, tool_calls: toolCalls };
+      const assistantToolMessage = {
+        role: 'assistant',
+        content: displayableText(messageText(firstMsg)) || '',
+        tool_calls: toolCalls,
+      };
       const conversation: any[] = [...baseMessages, assistantToolMessage];
 
       for (const call of toolCalls) {
@@ -364,17 +361,30 @@ export async function POST(req: Request) {
       }
 
       conversation.push({
-        role: 'system',
+        role: 'user',
         content: POST_TOOL_SYSTEM,
       });
 
-      sendData({ type: 'phase', phase: 'synthesize', label: 'Synthesizing answer' });
-      const second: any = await complete(conversation, 'none');
-      const secondMsg: any = second.choices?.[0]?.message || {};
-      const text = displayableText(messageText(secondMsg)) || fallbackBriefing(toolResults);
+      const local = fallbackBriefing(toolResults);
+      sendData({ type: 'phase', phase: 'synthesize', label: 'Writing finding' });
 
-      sendData({ type: 'phase', phase: 'answer', label: 'Streaming answer' });
-      for await (const chunk of chunkText(text)) sendText(chunk);
+      // Prefer a model briefing, but never leave the turn on tools-only.
+      // Gateways often stall or emit another tool call here; 6s then fall back.
+      let text = local;
+      try {
+        const second: any = await Promise.race([
+          complete(conversation, 'none'),
+          new Promise((_, reject) => {
+            setTimeout(() => reject(new Error('synthesis-timeout')), 6_000);
+          }),
+        ]);
+        const written = displayableText(messageText(second?.choices?.[0]?.message));
+        if (written) text = written;
+      } catch {
+        text = local;
+      }
+
+      await streamAnswer(sendData, sendText, text);
     });
 
     return new Response(stream, {

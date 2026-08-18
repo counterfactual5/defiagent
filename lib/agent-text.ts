@@ -91,6 +91,48 @@ export function displayableText(raw: string): string {
   return stripInternalToolSyntax(raw).trim();
 }
 
+function findingLine(card: ToolCard): string {
+  switch (card.kind) {
+    case 'price':
+      return card.items
+        .map((item) => {
+          const change = item.change24h == null ? '' : ` (${item.change24h > 0 ? '+' : ''}${item.change24h.toFixed(2)}% 24h)`;
+          return `${item.id} $${item.usd ?? '—'}${change}`;
+        })
+        .join('; ') + '.';
+    case 'tvl':
+      return `${card.title} is $${card.tvlUsd ?? '—'}.`;
+    case 'repo':
+      return `${card.title} has ${card.stars ?? '—'} stars${card.language ? ` (${card.language})` : ''}.`;
+    case 'gas': {
+      const standard = card.rows.find((row) => /standard/i.test(row.label)) || card.rows[1] || card.rows[0];
+      return `Ethereum gas is ${standard?.value || 'available'} at the standard tier.`;
+    }
+    case 'swap': {
+      const pair = [card.amountIn, card.tokenIn, '→', card.tokenOut].filter(Boolean).join(' ');
+      return card.deepLink
+        ? `${pair} is ready — open Uniswap to review and sign.`
+        : `${pair} quote/plan is ready.`;
+    }
+    case 'perp':
+      return `${card.side || 'Quote'} ${card.coin || ''} fill ${card.avgPrice || '—'} (slip ${card.slippage || '—'}).`.replace(/\s+/g, ' ').trim();
+    case 'markets':
+      return card.items[0]?.name
+        ? `Top result: ${card.items[0].name}${card.items[0].odds ? ` · ${card.items[0].odds}` : ''}.`
+        : 'Market search finished.';
+    case 'doctor': {
+      const failed = card.checks.filter((check) => !check.ok).length;
+      return failed
+        ? `DeFi Doctor found ${failed} failed check${failed > 1 ? 's' : ''}.`
+        : 'DeFi Doctor preflight passed.';
+    }
+    case 'wallet':
+      return `${card.title}: ${card.items[0] ? `${card.items[0].label} ${card.items[0].value}` : 'scan finished'}.`;
+    default:
+      return card.ok ? card.summary : `${card.title} failed: ${card.summary}`;
+  }
+}
+
 function cardEvidence(card: ToolCard): { bullets: string[]; next?: string } {
   switch (card.kind) {
     case 'price':
@@ -145,9 +187,11 @@ function cardEvidence(card: ToolCard): { bullets: string[]; next?: string } {
   }
 }
 
+/** Operator briefing built from live tool receipts. Always a visible Finding. */
 export function fallbackBriefing(results: { name: string; result: string }[]): string {
   const evidence: string[] = [];
   const nextSteps: string[] = [];
+  const findings: string[] = [];
   let failed = 0;
 
   for (const { name, result } of results) {
@@ -158,17 +202,19 @@ export function fallbackBriefing(results: { name: string; result: string }[]): s
     }
     if (card.kind === 'generic' && !card.ok) {
       failed += 1;
+      findings.push(findingLine(card));
       evidence.push(`- **${card.title}**: ${card.summary}`);
       continue;
     }
+    findings.push(findingLine(card));
     const { bullets, next } = cardEvidence(card);
     evidence.push(...bullets);
     if (next) nextSteps.push(next);
   }
 
   const finding = failed === results.length && results.length > 0
-    ? '**Finding:** Live tools ran, but every call failed — see receipts below.'
-    : '**Finding:** Live tools finished; the model did not write a briefing, so this is the receipt summary.';
+    ? `**Finding:** Live tools ran, but every call failed — see receipts below.`
+    : `**Finding:** ${findings[0] || 'Live tools finished.'}`;
 
   const parts = [finding, '', '**Evidence:**', ...(evidence.length ? evidence : ['- No structured card was produced.'])];
   if (nextSteps.length) {
