@@ -35,6 +35,14 @@ import {
   type SessionSnapshot,
   type TurnReceipt,
 } from '@/lib/session';
+import { ThemeToggle } from '@/components/ThemeToggle';
+import {
+  applyTheme,
+  cycleTheme,
+  loadTheme,
+  saveTheme,
+  type Theme,
+} from '@/lib/theme';
 
 const MODELS = [
   { id: 'deepseek-v4-flash-200k', label: 'DeepSeek V4 Flash 200K' },
@@ -74,7 +82,7 @@ export default function AgentPage() {
 
   if (boot === undefined) {
     return (
-      <div className="flex h-[100dvh] items-center justify-center bg-[#eef2f7] text-sm text-slate-500">
+      <div className="flex h-[100dvh] items-center justify-center bg-[var(--bg)] text-sm text-[var(--muted)]">
         Restoring session…
       </div>
     );
@@ -94,6 +102,7 @@ function AgentConsole({ boot }: { boot: SessionSnapshot | null }) {
   const [composerPad, setComposerPad] = useState(0);
   const [retryingId, setRetryingId] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [theme, setTheme] = useState<Theme>('system');
   const bottomRef = useRef<HTMLDivElement>(null);
   const scrollRootRef = useRef<HTMLDivElement>(null);
   const activeTurnRef = useRef<string | null>(null);
@@ -129,6 +138,16 @@ function AgentConsole({ boot }: { boot: SessionSnapshot | null }) {
   useEffect(() => {
     const wb = loadWorkbench();
     if (wb?.promptHistory) setPromptHistory(wb.promptHistory);
+  }, []);
+
+  useEffect(() => {
+    const next = loadTheme();
+    setTheme(next);
+    applyTheme(next);
+    const mq = window.matchMedia('(prefers-color-scheme: dark)');
+    const onChange = () => applyTheme(loadTheme());
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
   }, []);
 
   useEffect(() => {
@@ -316,14 +335,21 @@ function AgentConsole({ boot }: { boot: SessionSnapshot | null }) {
     stickToBottomRef.current = distance < 96;
   };
 
+  const onCycleTheme = () => {
+    const next = cycleTheme(theme);
+    setTheme(next);
+    saveTheme(next);
+    applyTheme(next);
+  };
+
   return (
-    <div className="flex h-[100dvh] flex-col text-slate-900 selection:bg-blue-100/70">
-      <header className="sticky top-0 z-50 border-b border-slate-200/70 bg-white/75 backdrop-blur-xl">
-        <div className="flex items-center justify-between gap-3 px-4 py-3 lg:px-5">
-          <div className="flex items-center gap-3">
+    <div className="flex h-[100dvh] flex-col">
+      <header className="ui-header sticky top-0 z-50">
+        <div className="flex h-full items-center justify-between gap-3 px-3 lg:px-4">
+          <div className="flex items-center gap-2.5">
             <button
               type="button"
-              className="hidden min-h-11 min-w-11 items-center justify-center rounded-lg border border-slate-200 bg-white/80 p-2 text-slate-600 transition hover:border-blue-300 lg:inline-flex"
+              className="ui-icon-btn hidden lg:inline-flex"
               onClick={() => setRailOpen((v) => !v)}
               aria-label={railOpen ? 'Collapse context rail' : 'Expand context rail'}
             >
@@ -331,52 +357,51 @@ function AgentConsole({ boot }: { boot: SessionSnapshot | null }) {
             </button>
             <button
               type="button"
-              className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-slate-200 bg-white/80 p-2 text-slate-600 transition hover:border-blue-300 lg:hidden"
+              className="ui-icon-btn lg:hidden"
               onClick={() => setMobileOpen(true)}
               aria-label="Open tools"
             >
               <PanelLeftOpen className="h-4 w-4" />
             </button>
-            <div className="brand-gradient flex h-9 w-9 items-center justify-center rounded-xl shadow-sm shadow-blue-500/20">
-              <Bot className="h-5 w-5 text-white" />
+            <div className="brand-mark flex h-8 w-8 items-center justify-center rounded-lg">
+              <Bot className="h-4 w-4 text-white" />
             </div>
             <div>
-              <h1 className="flex items-center gap-2 text-[15px] font-bold tracking-tight text-slate-800">
-                <span className="brand-text">DeFi Agent</span>
-                <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-                  Live Tools
-                </span>
+              <h1 className="flex items-center gap-2 text-[14px] tracking-tight">
+                <span className="ui-wordmark">DeFi Agent</span>
+                <span className="ui-chip">Live</span>
               </h1>
-              <p className="hidden text-[11px] font-medium text-slate-500 sm:block">
-                Operator console · receipts stay with each finding
+              <p className="hidden text-[11px] text-[var(--muted)] sm:block">
+                Operator console
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             <select
               value={selectedModel}
               onChange={(e) => setSelectedModel(e.target.value)}
-              className="max-w-[132px] cursor-pointer rounded-lg border border-slate-200 bg-white/80 px-2.5 py-2 text-xs text-slate-700 outline-none transition-shadow focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 sm:max-w-none"
+              className="ui-select"
             >
               {MODELS.map((m) => (
                 <option key={m.id} value={m.id}>{m.label}</option>
               ))}
             </select>
+            <ThemeToggle theme={theme} onCycle={onCycleTheme} />
             <button
               type="button"
               onClick={() => void copyBriefing()}
               disabled={messages.length === 0}
-              className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-slate-200 bg-white/80 px-2.5 py-2 text-xs font-semibold text-slate-600 transition hover:border-blue-200 hover:text-blue-700 disabled:cursor-not-allowed disabled:opacity-40"
+              className="ui-ghost-btn"
               title="Copy briefing as Markdown"
             >
-              {copied ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5" />}
+              {copied ? <Check className="h-3.5 w-3.5 text-[var(--ok)]" /> : <Copy className="h-3.5 w-3.5" />}
               <span className="hidden sm:inline">{copied ? 'Copied' : 'Export'}</span>
             </button>
             <button
               type="button"
               onClick={clearChat}
               disabled={isLoading || messages.length === 0}
-              className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-slate-200 bg-white/80 px-2.5 py-2 text-xs font-semibold text-slate-600 transition hover:border-red-200 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-40"
+              className="ui-ghost-btn ui-ghost-btn--danger"
               title="Clear local session"
             >
               <Trash2 className="h-3.5 w-3.5" />
@@ -386,7 +411,7 @@ function AgentConsole({ boot }: { boot: SessionSnapshot | null }) {
               href="https://defiagent.llm.christmas"
               target="_blank"
               rel="noreferrer"
-              className="brand-gradient hidden min-h-11 items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold text-white shadow-sm shadow-blue-500/25 transition hover:brightness-105 sm:inline-flex"
+              className="ui-cta"
             >
               Gateway <ExternalLink className="h-3.5 w-3.5" />
             </a>
@@ -396,11 +421,9 @@ function AgentConsole({ boot }: { boot: SessionSnapshot | null }) {
 
       <div className="flex min-h-0 flex-1">
         <aside
-          className={`hidden shrink-0 border-r border-slate-200/70 bg-white/35 backdrop-blur-md transition-[width] duration-200 lg:flex ${
-            railOpen ? 'w-[320px]' : 'w-[64px]'
-          }`}
+          className={`ui-aside hidden shrink-0 lg:flex ${railOpen ? 'w-[300px]' : 'w-[60px]'}`}
         >
-          <div className="flex h-full w-full flex-col p-3">
+          <div className="flex h-full w-full flex-col p-2.5">
             <RepoPanel
               onInvoke={handleInvoke}
               compact={!railOpen}
@@ -414,20 +437,20 @@ function AgentConsole({ boot }: { boot: SessionSnapshot | null }) {
 
         {mobileOpen && (
           <div className="fixed inset-0 z-[60] lg:hidden">
-            <button type="button" className="absolute inset-0 bg-slate-900/40" aria-label="Close" onClick={() => setMobileOpen(false)} />
+            <button type="button" className="absolute inset-0 bg-[var(--overlay)]" aria-label="Close" onClick={() => setMobileOpen(false)} />
             <div
-              className="absolute inset-x-0 bottom-0 flex max-h-[82dvh] flex-col overflow-hidden rounded-t-2xl bg-[#eef2f7] shadow-2xl"
+              className="ui-sheet absolute inset-x-0 bottom-0 flex max-h-[82dvh] flex-col overflow-hidden rounded-t-2xl shadow-2xl"
               style={{ paddingBottom: 'max(12px, env(safe-area-inset-bottom))' }}
             >
               <div className="flex items-center justify-center pt-2">
-                <div className="h-1.5 w-10 rounded-full bg-slate-300" />
+                <div className="h-1.5 w-10 rounded-full bg-[var(--border-strong)]" />
               </div>
               <div className="flex items-center justify-between px-4 py-2">
-                <span className="text-sm font-semibold text-slate-800">Tools & Projects</span>
+                <span className="text-sm font-semibold">Tools & Projects</span>
                 <button
                   type="button"
                   onClick={() => setMobileOpen(false)}
-                  className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg text-slate-500 hover:bg-white"
+                  className="ui-icon-btn"
                 >
                   <X className="h-4 w-4" />
                 </button>
@@ -447,11 +470,11 @@ function AgentConsole({ boot }: { boot: SessionSnapshot | null }) {
           </div>
         )}
 
-        <section className="relative flex min-w-0 flex-1 flex-col bg-white/40">
-          <div className="flex items-center justify-between border-b border-slate-100/80 px-4 py-2.5 lg:px-6">
-            <div className="text-sm font-semibold text-slate-700">Briefing</div>
-            <div className="text-[11px] font-medium text-slate-400">
-              <span className={`mr-1.5 inline-block h-1.5 w-1.5 rounded-full ${isLoading ? 'animate-pulse bg-amber-500' : 'bg-emerald-500'}`} />
+        <section className="ui-stage relative flex min-w-0 flex-1 flex-col">
+          <div className="ui-stage-bar flex items-center justify-between px-4 py-2 lg:px-6">
+            <div className="text-[13px] font-semibold text-[var(--text)]">Briefing</div>
+            <div className="text-[11px]">
+              <span className={`mr-1.5 inline-block h-1.5 w-1.5 rounded-full ${isLoading ? 'animate-pulse bg-[var(--warn)]' : 'bg-[var(--ok)]'}`} />
               {isLoading ? (live.phase?.label || 'Working…') : `Live · ${selectedModel}`}
             </div>
           </div>
@@ -463,7 +486,7 @@ function AgentConsole({ boot }: { boot: SessionSnapshot | null }) {
           >
             <div className="mx-auto w-full max-w-3xl">
               {error && (
-                <div className="mb-4 flex gap-2 rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-700">
+                <div className="ui-error mb-4">
                   <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
                   <div>
                     <p className="font-semibold">Request failed</p>
@@ -474,14 +497,14 @@ function AgentConsole({ boot }: { boot: SessionSnapshot | null }) {
 
               {messages.length === 0 && !error ? (
                 <div className="flex min-h-[50vh] flex-col items-center justify-center px-2 text-center">
-                  <div className="brand-gradient mb-5 flex h-14 w-14 items-center justify-center rounded-2xl shadow-md shadow-blue-500/20">
-                    <Sparkles className="h-6 w-6 text-white" />
+                  <div className="brand-mark mb-5 flex h-12 w-12 items-center justify-center rounded-2xl">
+                    <Sparkles className="h-5 w-5 text-white" />
                   </div>
-                  <h2 className="text-lg font-bold tracking-tight text-slate-800">
-                    Live on-chain tools, one click away
+                  <h2 className="ui-wordmark text-xl">
+                    Live on-chain tools
                   </h2>
-                  <p className="mt-2 max-w-md text-sm leading-relaxed text-slate-500">
-                    Sessions autosave in this browser. Open Tools to run a live call — receipts stay attached to each finding.
+                  <p className="mt-2 max-w-md text-sm leading-relaxed text-[var(--muted)]">
+                    Sessions autosave in this browser. Run a live call from the rail — receipts stay with each finding.
                   </p>
                   <div className="mt-8 flex flex-wrap justify-center gap-2">
                     {LIVE_TOOLS.slice(0, 3).map((tool) => (
@@ -489,7 +512,7 @@ function AgentConsole({ boot }: { boot: SessionSnapshot | null }) {
                         key={tool.name}
                         type="button"
                         onClick={() => handleInvoke(tool.sample, { label: tool.label })}
-                        className="min-h-11 rounded-full border border-slate-200 bg-white/80 px-4 py-2 text-xs font-semibold text-slate-700 transition hover:border-blue-300"
+                        className="ui-pill"
                       >
                         {tool.label}
                       </button>
@@ -516,7 +539,7 @@ function AgentConsole({ boot }: { boot: SessionSnapshot | null }) {
                         return (
                           <div key={m.id} className="space-y-3">
                             <div>
-                              <div className="mb-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Query</div>
+                              <div className="ui-kicker mb-1.5">Query</div>
                               <div className="query-panel">{m.content}</div>
                             </div>
                             {(receipt.tools.length > 0 || receipt.phase || (active && isLoading)) && (
@@ -543,13 +566,13 @@ function AgentConsole({ boot }: { boot: SessionSnapshot | null }) {
 
                       return (
                         <div key={m.id}>
-                          <div className="mb-2 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
-                            <span className="brand-gradient inline-flex h-5 w-5 items-center justify-center rounded-md">
+                          <div className="ui-kicker mb-2 flex items-center gap-2">
+                            <span className="brand-mark inline-flex h-5 w-5 items-center justify-center rounded-md">
                               <Bot className="h-3 w-3 text-white" />
                             </span>
                             Finding
                             {streamingFinding ? (
-                              <span className="font-medium normal-case tracking-normal text-amber-600/90">streaming</span>
+                              <span className="font-medium normal-case tracking-normal text-[var(--warn)]">streaming</span>
                             ) : null}
                           </div>
                           <div className={`finding-panel px-5 py-4 ${streamingFinding ? 'finding-panel--live' : ''}`}>
@@ -559,11 +582,11 @@ function AgentConsole({ boot }: { boot: SessionSnapshot | null }) {
                                   const fresh = formatFetchedAt(t.completedAt);
                                   return (
                                     <div key={t.id || t.name}>
-                                      <div className="mb-1.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] font-bold uppercase tracking-[0.1em] text-slate-400">
+                                      <div className="ui-kicker mb-1.5 flex flex-wrap items-center gap-x-2 gap-y-0.5">
                                         <span>{t.label || t.name}</span>
-                                        {t.source ? <span className="font-medium normal-case tracking-normal text-slate-400">· {t.source}</span> : null}
-                                        {fresh ? <span className="font-medium normal-case tracking-normal text-slate-400">· {fresh}</span> : null}
-                                        {t.ms != null ? <span className="font-mono font-medium normal-case tracking-normal text-slate-400">· {t.ms}ms</span> : null}
+                                        {t.source ? <span className="font-medium normal-case tracking-normal text-[var(--muted)]">· {t.source}</span> : null}
+                                        {fresh ? <span className="font-medium normal-case tracking-normal text-[var(--muted)]">· {fresh}</span> : null}
+                                        {t.ms != null ? <span className="font-mono font-medium normal-case tracking-normal text-[var(--muted)]">· {t.ms}ms</span> : null}
                                       </div>
                                       {t.card ? <ToolResultCard card={t.card} flush /> : null}
                                     </div>
@@ -577,7 +600,7 @@ function AgentConsole({ boot }: { boot: SessionSnapshot | null }) {
                               ) : streamingFinding ? (
                                 <Markdown>_Synthesizing…_</Markdown>
                               ) : (
-                                <p className="text-sm text-slate-500">
+                                <p className="text-sm text-[var(--muted)]">
                                   No written finding — use the receipts above. Deep links stay tappable.
                                 </p>
                               )}
@@ -595,36 +618,35 @@ function AgentConsole({ boot }: { boot: SessionSnapshot | null }) {
 
           <form
             onSubmit={onComposerSubmit}
-            className="border-t border-slate-100/80 bg-white/70 p-4 backdrop-blur-md lg:px-8"
+            className="ui-composer-bar p-4 lg:px-8"
             style={{ paddingBottom: `max(1rem, calc(1rem + ${composerPad}px))` }}
           >
             <div className="mx-auto w-full max-w-3xl">
               {armed && (
-                <div className="mb-2 flex items-center justify-between gap-3 rounded-xl border border-blue-200 bg-blue-50/80 px-3 py-2 text-xs text-blue-900">
+                <div className="ui-armed mb-2">
                   <div className="min-w-0">
                     <span className="font-bold">Armed:</span>{' '}
                     <span className="font-semibold">{armed.label}</span>
-                    <span className="ml-2 truncate text-blue-700/80">
+                    <span className="ml-2 truncate text-[var(--muted)]">
                       {armed.prompt.slice(0, 80)}{armed.prompt.length > 80 ? '…' : ''}
                     </span>
                   </div>
                   <div className="flex shrink-0 items-center gap-1">
-                    <button type="button" className="min-h-9 rounded-md px-2 py-1 font-semibold hover:bg-white/70" onClick={() => void startRun(armed.prompt, { label: armed.label })}>
+                    <button type="button" className="min-h-9 rounded-md px-2 py-1 font-semibold" onClick={() => void startRun(armed.prompt, { label: armed.label })}>
                       Send
                     </button>
-                    <button type="button" className="inline-flex min-h-9 min-w-9 items-center justify-center rounded-md hover:bg-white/70" onClick={() => setArmed(null)} aria-label="Clear armed prompt">
+                    <button type="button" className="ui-icon-btn !min-h-9 !min-w-9" onClick={() => setArmed(null)} aria-label="Clear armed prompt">
                       <X className="h-3.5 w-3.5" />
                     </button>
                   </div>
                 </div>
               )}
-              <div className="brand-ring flex items-end gap-3 rounded-2xl border border-slate-200 bg-white/95 p-2 shadow-sm transition-shadow focus-within:border-blue-400">
+              <div className="ui-composer">
                 <textarea
                   value={input}
                   onChange={handleInputChange}
                   rows={1}
                   placeholder="Ask about prices, TVL, repos, gas — or run a tool from the rail..."
-                  className="max-h-32 min-h-[48px] flex-1 resize-none bg-transparent px-3 py-3 text-sm text-slate-800 outline-none placeholder:text-slate-400"
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && !e.shiftKey) {
                       e.preventDefault();
@@ -635,12 +657,12 @@ function AgentConsole({ boot }: { boot: SessionSnapshot | null }) {
                 <button
                   type="submit"
                   disabled={isLoading || (!input.trim() && !armed)}
-                  className="brand-gradient inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-white shadow-md shadow-blue-500/25 transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none"
+                  className="ui-send"
                 >
                   <Send className="ml-0.5 h-4 w-4" />
                 </button>
               </div>
-              <div className="mt-2 text-center text-[10.5px] font-medium text-slate-400">
+              <div className="mt-2 text-center text-[10.5px] font-medium text-[var(--faint)]">
                 Enter to send · drafts arm instead of overwrite · session saved locally
               </div>
             </div>
